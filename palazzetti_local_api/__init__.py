@@ -67,6 +67,12 @@ class Palazzetti(object):
         # States are in the format DOMAIN.OBJECT_ID.
         #hass.states.async_set('palazzetti.ip', self.ip)
 
+    #generic command
+    async def async_get_gen(self,myrequest='GET LABL'):
+        """Get generic request"""
+        self.op = myrequest
+        await self.async_get_request()
+
     # make request GET STDT
     async def async_get_stdt(self):
         """Get counters"""
@@ -241,6 +247,15 @@ class Palazzetti(object):
             return 0
 
         return self.response_json['SETP']
+
+    # get generic KEY in the datas
+    # if key doesn't exist returns None
+    def get_key(self,mykey='STATUS'):
+        """Get target temperature for climate"""
+        if self.response_json == None or (mykey in self.response_json) == False or self.response_json[mykey] == None:
+            return
+
+        return self.response_json[mykey]
 
     def set_parameters(self, datas):
         """set parameters following service call"""
