@@ -62,7 +62,7 @@ class PalDiscovery(object):
           # Receive the client packet along with the address it is coming from
           try:
             data, addr = server.recvfrom(BUFFER_SIZE)
-            print(data.decode('utf-8'))
+            #print(data.decode('utf-8'))
             if data != '':
               mydata=data.decode('utf-8')
               mydata_json=json.loads(mydata)
@@ -77,7 +77,7 @@ class PalDiscovery(object):
         try:
             test_api = Palazzetti(testIP)
             myresult = await test_api.async_test()
-            print(myresult)
+            #print(myresult)
             if not myresult:
                 return False
             else:
@@ -255,7 +255,9 @@ class Palazzetti(object):
     async def async_test(self):
         """Get counters"""
         self.op = 'GET LABL'
-        await self.async_get_request(False)
+        response = await self.async_get_request(False)
+        #print(f"From async_test: {response}")
+        return response
 
     # send a get request for get datas
     async def async_get_request(self,refresh_data=True):
