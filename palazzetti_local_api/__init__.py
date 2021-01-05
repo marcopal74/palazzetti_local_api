@@ -3,8 +3,47 @@ import logging
 import asyncio
 import requests
 import aiohttp
+import socket
+import re
 
 _LOGGER = logging.getLogger(__name__)
+
+UDP_PORT = 54549
+DISCOVERY_TIMEOUT = 5
+DISCOVERY_MESSAGE = b"plzbridge?"
+BUFFER_SIZE = 1024
+
+class PalDiscovery(object):
+    #discovers all ConnBoxes responding to broadcast
+    async def discovery(self):
+        """Validate the user input allows us to connect.
+        Data has the keys from DATA_SCHEMA with values provided by the user.
+        """
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    
+        server.settimeout(DISCOVERY_TIMEOUT)
+        myips=[]
+        server.sendto(DISCOVERY_MESSAGE, ('<broadcast>', UDP_PORT))
+        while True:
+          # Receive the client packet along with the address it is coming from
+          try:
+            data, addr = server.recvfrom(BUFFER_SIZE)
+            #print(data)
+            if data != '':
+              mydata=data.decode('utf-8')
+              mydata_json=json.loads(mydata)
+              if mydata_json["SUCCESS"] == True:
+                myips.append(addr[0])
+                print(addr[0])
+
+          except socket.timeout:
+              #print("retry")
+              myips = list(dict.fromkeys(myips))
+              return myips
 
 # class based on NINA 6kw
 # contact me if you have a other model of stove
@@ -19,7 +58,7 @@ class Palazzetti(object):
 
     """docstring for Palazzetti"""
     def __init__(self, config):
-    #def __init__(self, hass, config):
+        #def __init__(self, hass, config):
 
         #self.hass       = hass
         self.ip         = config
@@ -67,6 +106,71 @@ class Palazzetti(object):
         # States are in the format DOMAIN.OBJECT_ID.
         #hass.states.async_set('palazzetti.ip', self.ip)
 
+    #discovers randomly the first ConnBox responding to broadcast
+    async def discover(self):
+        """Validate the user input allows us to connect.
+        Data has the keys from DATA_SCHEMA with values provided by the user.
+        """
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    
+        server.settimeout(5)
+        mymess=""
+        message = b"plzbridge?"
+        for i in range(3):
+          sequence_number = i
+          #server.sendto(message, (data, 54549))
+          server.sendto(message, ('<broadcast>', 54549))
+          # Receive the client packet along with the address it is coming from
+          try:
+            data, addr = server.recvfrom(1024)
+            if data != '':
+              mymess=data.decode('utf-8')
+              mymess_json=json.loads(mymess)
+              print(addr)
+              print(mymess)
+              print("the macaddress is %s", mymess_json["DATA"]["MAC"])
+              
+              
+              my_addr=re.search(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', str(addr)).group()
+
+              return my_addr
+              break
+          except socket.timeout:
+              #print("retry")
+              pass
+        return "0.0.0.0"
+    
+    #discovers all ConnBoxes responding to broadcast
+    async def discover2(self):
+        """Validate the user input allows us to connect.
+        Data has the keys from DATA_SCHEMA with values provided by the user.
+        """
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    
+        server.settimeout(5)
+        myips=[]
+        message = b"plzbridge?"
+        server.sendto(message, ('<broadcast>', 54549))
+        while True:
+          # Receive the client packet along with the address it is coming from
+          try:
+            data, addr = server.recvfrom(1024)
+            myips.append(addr[0])
+            print(addr[0])
+
+          except socket.timeout:
+              #print("retry")
+              myips = list(dict.fromkeys(myips))
+              return myips
+
     #generic command
     async def async_get_gen(self,myrequest='GET LABL'):
         """Get generic request"""
@@ -91,8 +195,14 @@ class Palazzetti(object):
         self.op = 'GET CNTR'
         await self.async_get_request()
 
+    # make request to check ip
+    async def async_test(self):
+        """Get counters"""
+        self.op = 'GET LABL'
+        await self.async_get_request(False)
+
     # send a get request for get datas
-    async def async_get_request(self):
+    async def async_get_request(self,refresh_data=True):
         """ request the stove """
         # params for GET
         params = (
@@ -151,7 +261,11 @@ class Palazzetti(object):
 
         print('palazzetti.stove - online')
         #self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
-        self.change_states()
+        if refresh_data:
+          self.change_states()
+        else:
+          print(self.response_json['LABEL'])
+          return self.response_json['LABEL']
 
     # send request to stove
     def request_stove(self, op, params):
