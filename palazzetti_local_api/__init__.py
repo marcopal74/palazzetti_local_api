@@ -12,6 +12,7 @@ UDP_PORT = 54549
 DISCOVERY_TIMEOUT = 5
 DISCOVERY_MESSAGE = b"plzbridge?"
 BUFFER_SIZE = 1024
+HTTP_TIMEOUT = 15
 
 class PalDiscovery(object):
     #discovers all ConnBoxes responding to broadcast
@@ -44,6 +45,61 @@ class PalDiscovery(object):
               #print("retry")
               myips = list(dict.fromkeys(myips))
               return myips
+
+    async def checkIP_UDP(self,testIP):
+        """verify the IP is a Connection Box"""
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    
+        server.settimeout(DISCOVERY_TIMEOUT)
+        myips=[]
+        server.sendto(DISCOVERY_MESSAGE, (testIP, UDP_PORT))
+        while True:
+          # Receive the client packet along with the address it is coming from
+          try:
+            data, addr = server.recvfrom(BUFFER_SIZE)
+            print(data.decode('utf-8'))
+            if data != '':
+              mydata=data.decode('utf-8')
+              mydata_json=json.loads(mydata)
+              if mydata_json["SUCCESS"] == True:
+                return True
+
+          except socket.timeout:
+              return False
+
+    async def checkIP_HTTP(self,testIP):
+
+        try:
+            test_api = Palazzetti(testIP)
+            myresult = await test_api.async_test()
+            print(myresult)
+            if not myresult:
+                return False
+            else:
+                return True
+        except:
+                #del a
+                #del test_api
+            return False
+
+    async def checkIP(self,testIP):
+        is_IP_OK = await self.checkIP_UDP(testIP)
+        print(f"From checkIP_UDP {is_IP_OK}")
+    
+        if not is_IP_OK:
+            print("No ConnBox found via UDP, checking via HTTP...")
+            is_IP_OK= await self.checkIP_HTTP(testIP)
+            print(f"From checkIP_HTTP {is_IP_OK}")
+            if not is_IP_OK:
+                print("No ConnBox found")
+                return False
+        
+        return True
 
 # class based on NINA 6kw
 # contact me if you have a other model of stove
@@ -199,7 +255,9 @@ class Palazzetti(object):
     async def async_test(self):
         """Get counters"""
         self.op = 'GET LABL'
-        await self.async_get_request(False)
+        response = await self.async_get_request(False)
+        #print(f"From async_test: {myresponse}")
+        return response
 
     # send a get request for get datas
     async def async_get_request(self,refresh_data=True):
@@ -215,12 +273,14 @@ class Palazzetti(object):
 
         # let's go baby
         print(self.op)
+        #response = False
+        mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=mytimeout) as session:
                 async with session.get(self.queryStr, params=params) as response:                    
                     if response.status != 200 : 
                         _LOGGER.error("Error during api request : http status returned is {}".format(response.status))
-                        print('palazzetti.stove - offline')
+                        print('palazzetti.stove - offline1')
                         #self.hass.states.async_set('palazzetti.stove', 'offline')
                         response = False
                     else:
@@ -229,17 +289,19 @@ class Palazzetti(object):
 
         except aiohttp.ClientError as client_error:
             _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            print('palazzetti.stove - offline')
+            print('palazzetti.stove - offline2')
             #self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
         except json.decoder.JSONDecodeError as err:
             _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            print('palazzetti.stove - offline')
+            print('palazzetti.stove - offline3')
             #self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
-        
+        except:
+            response = False
+
         if response == False:
-            _LOGGER.debug('get_request() response false for op ' + self.op)
+            #print("response=False")
             return False
 
         
@@ -259,12 +321,12 @@ class Palazzetti(object):
         else:
             self.response_json = response_json['DATA']
 
-        print('palazzetti.stove - online')
+        #print('palazzetti.stove - online')
         #self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
         if refresh_data:
           self.change_states()
         else:
-          print(self.response_json['LABEL'])
+          #print(self.response_json['LABEL'])
           return self.response_json['LABEL']
 
     # send request to stove
@@ -291,6 +353,7 @@ class Palazzetti(object):
                 _LOGGER.info('Please check if you can ping : ' + self.ip)
                 print('palazzetti.stove - offline')
                 #self.hass.states.set('palazzetti.stove', 'offline')
+
                 return False
             except requests.exceptions.ConnectTimeout:
                 # equivalent of ping
@@ -300,6 +363,7 @@ class Palazzetti(object):
                 return False
 
             if response == False:
+                raise Exception("Sorry timeout")
                 return False
 
             # save response in json object
