@@ -4,7 +4,7 @@ from palazzetti_sdk_local_api import Palazzetti, PalDiscovery, PalComm
 
 _LOGGER = logging.getLogger(__name__)
 
-TEST_IP = "192.168.1.133"
+TEST_IP = "192.168.1.130"
 
 def main():
     api_discovery=PalDiscovery()
@@ -114,18 +114,23 @@ def main4():
     #use_ip="192.168.1.133"
     print(f"Using IP: {use_ip}")
     api=Palazzetti(use_ip)
-
-    loop.run_until_complete(api.async_get_alls())
+    
+    print("Recupera TUTTO")
+    #loop.run_until_complete(api.async_get_alls())
     #loop.close()
-    print(f"{api.get_datas()}")
+    print(f"{api.get_data_json()}")
     #key volutamente errata
     print(api.get_key('MACive'))
     #diverse forme di print
     print(api.get_key('MAC'))
     print(f"{api.get_key('STATUS')} {api.get_key('MAC')}")
-    loop.run_until_complete(api.async_get_gen('GET STDT'))
+    #loop.run_until_complete(api.async_get_gen('GET STDT'))
+    #loop.run_until_complete(api.async_config_parse())
     loop.close()
-    print(f"{api.get_datas()}")
+    print("Recupera GET STDT")
+    print(f"{api.get_data_stdt_json()}")
+    print("Recupera CONFIG")
+    print(f"{api.get_data_config_json()}")
 
 def main5():
     loop = asyncio.get_event_loop()

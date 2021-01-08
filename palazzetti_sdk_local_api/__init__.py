@@ -2,6 +2,7 @@ import json
 import logging
 import requests
 import aiohttp
+import asyncio
 import socket
 import time
 
@@ -183,8 +184,6 @@ class Palazzetti(object):
         self.data = {}
         self.data["title"] = self.unique_id
 
-        self.queryStr = "http://" + self.ip + "/cgi-bin/sendmsg.lua"
-
         _LOGGER.debug("Init of class palazzetti")
 
         self.code_status = {
@@ -211,7 +210,15 @@ class Palazzetti(object):
             253: "NOPELLET ALARM",
         }
 
+        #carica tutti i dati possibili
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.async_get_stdt())
+        loop.run_until_complete(self.async_get_alls())
+        loop.run_until_complete(self.async_get_cntr())
+        loop.close()
+
     # generic command
+    #da togliere magari...
     async def async_get_gen(self, myrequest="GET LABL"):
         """Get generic request"""
         self.op = myrequest
@@ -235,98 +242,50 @@ class Palazzetti(object):
         self.op = "GET CNTR"
         await self.async_get_request()
 
-    # make request to check ip
-    async def async_test(self):
-        """Get label"""
-        self.op = "GET LABL"
-        response = await self.async_get_request(False)
-        # print(f"From async_test: {response}")
-        return response
-
-    # send a get request for get datas
-    async def async_get_request(self, refresh_data=True):
+    async def async_get_request(self):
         """ request the stove """
-        # params for GET
-        params = (("cmd", self.op),)
+        message=self.op
         _response_json = None
 
         # check if op is defined or stop here
-        if self.op is None:
+        if message is None:
             return False
 
         # print(self.op)
-        _LOGGER.debug("Executing command: {self.op}")
+        _LOGGER.debug("Executing command: {message}")
         # response = False
-        mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
-        try:
-            async with aiohttp.ClientSession(timeout=mytimeout) as session:
-                async with session.get(self.queryStr, params=params) as response:
-                    if response.status != 200:
-                        _LOGGER.error(
-                            "Error during api request : http status returned is {}".format(
-                                response.status
-                            )
-                        )
-                        # print("palazzetti.stove - offline1")
-                        self.state = "offline"
-                        response = False
-                    else:
-                        # save response in json object
-                        _response_json = json.loads(await response.text())
 
-        except aiohttp.ClientError as client_error:
-            _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            # print("palazzetti.stove - offline2")
+        api_discovery=PalComm()
+        _response = await api_discovery.async_getHTTP(self.ip, message)
+
+        if not _response:
             self.state = "offline"
-            response = False
-        except json.decoder.JSONDecodeError as err:
-            _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            # print("palazzetti.stove - offline3")
-            self.state = "offline"
-            response = False
-        except:
-            response = False
-
-        self.data["state"] = self.state
-        if self.state != "online":
-            self.response_json.update({"icon": "mdi:link-off"})
-        if response == False:
-            # print("response=False")
-            return False
-
-        # If no response return
-        if _response_json["SUCCESS"] != True:
-            # print("palazzetti.stove - com error")
-            self.state = "com error"
             self.data["state"] = self.state
             self.response_json.update({"icon": "mdi:link-off"})
-            _LOGGER.error("Error returned by CBox")
             return False
-
-        # merge response with existing dict
+        
+        #merge the result with the exixting responnse_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
-            response_merged.update(_response_json["DATA"])
+            response_merged.update(_response)
             self.response_json = response_merged
         else:
-            self.response_json = _response_json["DATA"]
-
-        self.response_json.update({"icon": "mdi:link"})
-        self.response_json.update({"unique_id": self.unique_id})
+            self.response_json = _response
+        
         self.state = "online"
         self.data["state"] = self.state
+        self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
 
         if self.op == "GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
-            self.response_json_alls = _response_json["DATA"]
+            self.response_json_alls = _response
+            self.__config_parse()
         elif self.op == "GET STDT":
-            self.response_json_stdt = _response_json["DATA"]
-
-        if not refresh_data:
-            return self.response_json["LABEL"]
+            self.response_json_stdt = _response
+            self.__config_parse()
 
     # send request to stove
     def request_stove(self, op, params):
@@ -414,6 +373,13 @@ class Palazzetti(object):
 
     # update configuration: call json parse function
     async def async_config_parse(self):
+        asset_parser = psap(
+            get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
+        )
+        asset_capabilities = asset_parser.parsed_data
+        self.data_config_object = asset_capabilities
+
+    def __config_parse(self):
         asset_parser = psap(
             get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
         )
@@ -555,6 +521,7 @@ class Palazzetti(object):
         return self.response_json
 
     def get_data_config_json(self):
+        self.__config_parse()
         return vars(self.data_config_object)
 
     def get_data_alls_json(self):
