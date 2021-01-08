@@ -1,10 +1,10 @@
 import logging, asyncio, json, requests, aiohttp
 
-from palazzetti_local_api import Palazzetti, PalDiscovery
+from palazzetti_sdk_local_api import Palazzetti, PalDiscovery, PalComm
 
 _LOGGER = logging.getLogger(__name__)
 
-TEST_IP = "192.168.1.130"
+TEST_IP = "192.168.1.133"
 
 def main():
     api_discovery=PalDiscovery()
@@ -130,12 +130,12 @@ def main4():
 def main5():
     loop = asyncio.get_event_loop()
 
-    use_ip="192.168.1.133"
+    use_ip="192.168.20.45"
     print(f"Using IP: {use_ip}")
     api=Palazzetti(use_ip)
 
     loop.run_until_complete(api.async_get_alls())
-    print(f"{api.get_datas()}")
+    print(f"{api.get_data_json()}")
     #key volutamente errata
     print(api.get_key('MACive'))
     #diverse forme di print
@@ -148,5 +148,27 @@ def main5():
     else:
         print("Acqua")
 
+def main6():
+    #api_discovery=PalComm()
+    api_discovery=PalDiscovery()
+    loop = asyncio.get_event_loop()
+
+    print("Chiamata diretta:")
+    use_ip = "192.168.1.130"
+    #is_IP_OK=loop.run_until_complete(api_discovery.async_callHTTP(use_ip, b"plzbridge?"))
+    is_IP_OK=loop.run_until_complete(api_discovery.checkIP_UDP(use_ip))
+    print(f"From checkIP_UDP {is_IP_OK}")
+
+def main7():
+    api_discovery=PalComm()
+    #api_discovery=PalDiscovery()
+    loop = asyncio.get_event_loop()
+
+    print("Chiamata diretta:")
+    use_ip = "192.168.1.121"
+    is_IP_OK=loop.run_until_complete(api_discovery.async_getHTTP(use_ip, "GET STDT"))
+    #is_IP_OK=loop.run_until_complete(api_discovery.checkIP_UDP(use_ip))
+    print(f"From checkIP_HTTP {is_IP_OK}")
+
 if __name__ == "__main__":
-    main()
+    main4()

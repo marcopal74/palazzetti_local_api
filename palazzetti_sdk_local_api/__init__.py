@@ -1,17 +1,11 @@
 import json
 import logging
-
-# import asyncio
 import requests
 import aiohttp
 import socket
-
 import time
 
-# from .palazzetti_sdk_asset_parser_python import AssetParser as psap
 from palazzetti_sdk_asset_parser import AssetParser as psap
-
-from ..const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +15,83 @@ DISCOVERY_MESSAGE = b"plzbridge?"
 BUFFER_SIZE = 2048
 HTTP_TIMEOUT = 15
 
+#to be completed!!
+class PalComm(object):
+    async def async_callUDP(self, host, message):
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        server.settimeout(DISCOVERY_TIMEOUT)
+        server.sendto(message, (host, UDP_PORT))
+
+        while True:
+            # Receive the client packet along with the address it is coming from
+            try:
+                data, addr = server.recvfrom(BUFFER_SIZE)
+                # print(data.decode('utf-8'))
+                if data != "":
+                    mydata = data.decode("utf-8")
+                    mydata_json = json.loads(mydata)
+                    if mydata_json["SUCCESS"] == True:
+                        return mydata_json["DATA"]
+
+            except socket.timeout:
+                return
+
+    async def async_getHTTP(self, host, message):
+        queryStr = "http://" + host + "/cgi-bin/sendmsg.lua"
+        # params for GET
+        params = (("cmd", message),)
+        _response_json = None
+
+        # check if op is defined or stop here
+        if message is None:
+            return False
+        # print(message)
+
+        _LOGGER.debug("Executing command: {message}")
+
+        mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
+
+        try:
+            async with aiohttp.ClientSession(timeout=mytimeout) as session:
+                async with session.get(queryStr, params=params) as response:
+                    if response.status != 200:
+                        _LOGGER.error(
+                            "Error during api request : http status returned is {}".format(
+                                response.status
+                            )
+                        )
+                        response = False
+                    else:
+                        # save response in json object
+                        _response_json = json.loads(await response.text())
+
+        except aiohttp.ClientError as client_error:
+            _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
+            response = False
+        except json.decoder.JSONDecodeError as err:
+            _LOGGER.error("Error during json parsing: response unexpected from Cbox")
+            self.state = "offline"
+            response = False
+        except:
+            response = False
+
+        if response == False:
+            return False
+
+        # If no response return
+        if _response_json["SUCCESS"] != True:
+            #maybe connection error between ConnBox and Stove
+            return False
+
+        return _response_json["DATA"]
 
 class PalDiscovery(object):
-    async def discovery(self):
+    async def discovery_UDP(self):
         """discovers all ConnBoxes responding to broadcast"""
 
         server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -55,43 +123,27 @@ class PalDiscovery(object):
     async def checkIP_UDP(self, testIP):
         """verify the IP is a Connection Box using UDP"""
 
-        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-        # Enable broadcasting mode
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-        server.settimeout(DISCOVERY_TIMEOUT)
-        server.sendto(DISCOVERY_MESSAGE, (testIP, UDP_PORT))
-
-        while True:
-            # Receive the client packet along with the address it is coming from
-            try:
-                data, addr = server.recvfrom(BUFFER_SIZE)
-                # print(data.decode('utf-8'))
-                if data != "":
-                    mydata = data.decode("utf-8")
-                    mydata_json = json.loads(mydata)
-                    if mydata_json["SUCCESS"] == True:
-                        return True
-
-            except socket.timeout:
-                return False
+        api_discovery=PalComm()    
+        use_ip = testIP
+        
+        _response = await api_discovery.async_callUDP(use_ip, DISCOVERY_MESSAGE)
+        
+        if not _response:
+            return False
+        
+        return True
 
     async def checkIP_HTTP(self, testIP):
         """verify the IP is a Connection Box using HTTP call with command GET LABL"""
-        try:
-            test_api = Palazzetti(testIP)
-            myresult = await test_api.async_test()
-            # print(myresult)
-            if not myresult:
-                return False
-            else:
-                return True
-        except:
-            # del a
-            # del test_api
+        api_discovery=PalComm()    
+        use_ip = testIP
+        
+        _response = await api_discovery.async_getHTTP(use_ip, "GET STDT")
+        
+        if not _response:
             return False
+        
+        return True
 
     async def checkIP(self, testIP):
         is_IP_OK = await self.checkIP_UDP(testIP)
@@ -106,7 +158,6 @@ class PalDiscovery(object):
                 return False
 
         return True
-
 
 class Palazzetti(object):
     """Palazzetti HTTP class"""
@@ -160,9 +211,6 @@ class Palazzetti(object):
             253: "NOPELLET ALARM",
         }
 
-        self.code_fan_nina = {0: "off", 6: "high", 7: "auto"}
-        self.code_fan_nina_reversed = {"off": 0, "high": 6, "auto": 7}
-
     # generic command
     async def async_get_gen(self, myrequest="GET LABL"):
         """Get generic request"""
@@ -206,7 +254,6 @@ class Palazzetti(object):
         if self.op is None:
             return False
 
-        # let's go baby
         # print(self.op)
         _LOGGER.debug("Executing command: {self.op}")
         # response = False
@@ -376,7 +423,7 @@ class Palazzetti(object):
     def get_sept(self):
         """Get target temperature for climate"""
         if self.response_json == None or self.response_json["SETP"] == None:
-            return 0
+            return 
 
         return self.response_json["SETP"]
 
