@@ -17,8 +17,10 @@ def main():
     if not found_ips:
         print("No ConnBox found")
         return
+    
+    print(found_ips)
 
-    use_ip=found_ips[0]
+    """use_ip=found_ips[0]
     #use_ip="192.168.1.133"
     print(f"Using IP: {use_ip}")
     api=Palazzetti(use_ip)
@@ -32,7 +34,7 @@ def main():
     print(f"{api.get_key('STATUS')} {api.get_key('MAC')}")
     loop.run_until_complete(api.async_get_gen('GET STDT'))
     loop.close()
-    print(f"{api.get_datas()}")
+    print(f"{api.get_datas()}")"""
 
 def main2():
     api_discovery=PalDiscovery()
@@ -125,5 +127,26 @@ def main4():
     loop.close()
     print(f"{api.get_datas()}")
 
+def main5():
+    loop = asyncio.get_event_loop()
+
+    use_ip="192.168.1.133"
+    print(f"Using IP: {use_ip}")
+    api=Palazzetti(use_ip)
+
+    loop.run_until_complete(api.async_get_alls())
+    print(f"{api.get_datas()}")
+    #key volutamente errata
+    print(api.get_key('MACive'))
+    #diverse forme di print
+    print(api.get_key('MAC'))
+    print(f"{api.get_key('STATUS')} {api.get_key('MAC')}")
+    loop.close()
+    print(f"interrogazione config: {api.get_data_config()['flag_tipologia_aria']}")
+    if api.get_data_config()['flag_tipologia_aria']:
+        print("Aria")
+    else:
+        print("Acqua")
+
 if __name__ == "__main__":
-    main4()
+    main()
