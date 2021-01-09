@@ -6,7 +6,7 @@ _LOGGER = logging.getLogger(__name__)
 
 TEST_IP = "192.168.1.130"
 
-def main():
+def main_findip():
     api_discovery=PalDiscovery()
     loop = asyncio.get_event_loop()
 
@@ -61,7 +61,7 @@ def main2():
     #diverse forme di print
     print(api.get_key('MAC'))
     print(f"{api.get_key('STATUS')} {api.get_key('MAC')}")
-    loop.run_until_complete(api.async_get_gen('GET STDT'))
+    loop.run_until_complete(api.async_get_stdt())
     loop.close()
     print(f"{api.get_datas()}")
 
@@ -94,7 +94,7 @@ def main3():
     #diverse forme di print
     print(api.get_key('MAC'))
     print(f"{api.get_key('STATUS')} {api.get_key('MAC')}")
-    loop.run_until_complete(api.async_get_gen('GET STDT'))
+    loop.run_until_complete(api.async_get_stdt())
     loop.close()
     print(f"{api.get_datas()}")
 

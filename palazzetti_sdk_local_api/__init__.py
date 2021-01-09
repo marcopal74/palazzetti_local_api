@@ -91,6 +91,42 @@ class PalComm(object):
 
         return _response_json["DATA"]
 
+    def getHTTP(self, host, message):
+        queryStr = "http://" + host + "/cgi-bin/sendmsg.lua"
+        # params for GET
+        params = (("cmd", message),)
+        _response_json = None
+
+        # check if op is defined or stop here
+        if message is None:
+            return False
+        # print(message)
+
+        _LOGGER.debug("Executing command: {message}")
+
+        try:
+            response = requests.get(queryStr, params=params, timeout=30)
+        except requests.exceptions.ReadTimeout:
+            # timeout ( can happend when wifi is used )
+            _LOGGER.error('Timeout reach for request : ' + queryStr)
+            return False
+        except requests.exceptions.ConnectTimeout:
+            # equivalent of ping
+            _LOGGER.error('Please check parm ip : ' + self.ip)
+            return False
+        
+        if response == False:
+            return False
+        
+        _response_json = json.loads(response.text)
+        
+        # If no response return
+        if _response_json["SUCCESS"] != True:
+            #maybe connection error between ConnBox and Stove
+            return False
+
+        return _response_json["DATA"]
+
 class PalDiscovery(object):
     async def discovery_UDP(self):
         """discovers all ConnBoxes responding to broadcast"""
@@ -176,9 +212,10 @@ class Palazzetti(object):
 
     last_op = None
     last_params = None
-
+    
     def __init__(self, host, title="uniqueID"):
         self.ip = host
+        self.palsocket=PalComm()
         self.state = "online"
         self.unique_id = title
         self.data = {}
@@ -209,20 +246,6 @@ class Palazzetti(object):
             252: "GAS ALARM",
             253: "NOPELLET ALARM",
         }
-
-        #carica tutti i dati possibili
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.async_get_stdt())
-        loop.run_until_complete(self.async_get_alls())
-        loop.run_until_complete(self.async_get_cntr())
-        loop.close()
-
-    # generic command
-    #da togliere magari...
-    async def async_get_gen(self, myrequest="GET LABL"):
-        """Get generic request"""
-        self.op = myrequest
-        await self.async_get_request()
 
     # make request GET STDT
     async def async_get_stdt(self):
@@ -255,8 +278,9 @@ class Palazzetti(object):
         _LOGGER.debug("Executing command: {message}")
         # response = False
 
-        api_discovery=PalComm()
-        _response = await api_discovery.async_getHTTP(self.ip, message)
+        #api_discovery=PalComm()
+        #_response = await api_discovery.async_getHTTP(self.ip, message)
+        _response = await self.palsocket.async_getHTTP(self.ip, message)
 
         if not _response:
             self.state = "offline"
@@ -287,62 +311,43 @@ class Palazzetti(object):
             self.response_json_stdt = _response
             self.__config_parse()
 
-    # send request to stove
-    def request_stove(self, op, params):
-        _LOGGER.debug("request stove " + op)
+    # send request to stove for set commands
+    # why not async?
+    def request_stove(self, message):
+        """ request the stove """
+        _response_json = None
 
-        if op is None:
+        # check if op is defined or stop here
+        if message is None:
             return False
 
+        # print(self.op)
+        _LOGGER.debug("request stove " + message)
+        # response = False
+
         # save
-        self.last_op = op
-        self.last_params = str(params)
+        self.last_op = message
 
         retry = 0
         success = False
 
-        response = False
+        _response = False
         _response_json = None
         # error returned by Cbox
         while not success:
             # let's go baby
-            try:
-                response = requests.get(self.queryStr, params=params, timeout=30)
-            except requests.exceptions.ReadTimeout:
-                # timeout ( can happend when wifi is used )
-                _LOGGER.error("Timeout reach for request : " + self.queryStr)
-                _LOGGER.info("Please check if you can ping : " + self.ip)
-                # print("palazzetti.stove - offline")
-                self.state = "offline"
-                self.data["state"] = self.state
-                return False
-            except requests.exceptions.ConnectTimeout:
-                # equivalent of ping
-                _LOGGER.error("Please check parm ip : " + self.ip)
-                # print("palazzetti.stove - offline")
-                self.state = "offline"
-                self.data["state"] = self.state
-                self.response_json.update({"icon": "mdi:link-off"})
-                return False
-
-            if response == False:
-                self.state = "offline"
-                self.data["state"] = self.state
-                self.response_json.update({"icon": "mdi:link-off"})
-                raise Exception("Sorry timeout")
-
-            # save response in json object
-            _response_json = json.loads(response.text)
-            success = _response_json["SUCCESS"]
+            #api_discovery=PalComm()
+            #_response = await api_discovery.async_getHTTP(self.ip, message)
+            _response = self.palsocket.getHTTP(self.ip, message)
 
             # cbox return error
-            if not success:
+            if not _response:
                 # print("palazzetti.stove - com error")
                 self.state = "com error"
                 self.data["state"] = self.state
                 self.response_json.update({"icon": "mdi:link-off"})
                 _LOGGER.error(
-                    "Error returned by CBox - retry in 2 seconds (" + op + ")"
+                    "Error returned by CBox - retry in 2 seconds (" + message + ")"
                 )
                 time.sleep(2)
                 retry = retry + 1
@@ -350,34 +355,36 @@ class Palazzetti(object):
                 if retry == 3:
                     _LOGGER.error(
                         "Error returned by CBox - stop retry after 3 attempt ("
-                        + op
+                        + message
                         + ")"
                     )
                     break
+            
+            success = True
 
-        # merge response with existing dict
+        # merge the result with the exixting responnse_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
-            response_merged.update(_response_json["DATA"])
+            response_merged.update(_response)
             self.response_json = response_merged
         else:
-            self.response_json = _response_json["DATA"]
-
-        self.response_json.update({"icon": "mdi:link"})
-        self.response_json.update({"unique_id": self.unique_id})
+            self.response_json = _response
+        
         self.state = "online"
         self.data["state"] = self.state
+        self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
+        self.__config_parse()
 
-        return response
+        return _response
 
     # update configuration: call json parse function
-    async def async_config_parse(self):
-        asset_parser = psap(
-            get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
-        )
-        asset_capabilities = asset_parser.parsed_data
-        self.data_config_object = asset_capabilities
+    # async def async_config_parse(self):
+    #     asset_parser = psap(
+    #         get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
+    #     )
+    #     asset_capabilities = asset_parser.parsed_data
+    #     self.data_config_object = asset_capabilities
 
     def __config_parse(self):
         asset_parser = psap(
@@ -408,35 +415,40 @@ class Palazzetti(object):
 
     def set_parameters(self, datas):
         """set parameters following service call"""
-        self.set_sept(datas.get("SETP", None))  # temperature
-        self.set_powr(datas.get("PWR", None))  # fire power
-        self.set_rfan(datas.get("RFAN", None))  # Fan
-        self.set_status(datas.get("STATUS", None))  # status
+        self.set_setp(datas.get("SETP", None))  # temperature
+        #self.set_powr(datas.get("PWR", None))  # fire power
+        #self.set_rfan(datas.get("RFAN", None))  # Fan
+        #self.set_status(datas.get("STATUS", None))  # status
 
-    def set_sept(self, value):
+    def set_setp(self, value):
         """Set target temperature"""
-
         if value == None or type(value) != int:
             return
+            
+        if value < self.data_config_object.value_setpoint_min or value > self.data_config_object.value_setpoint_max:
+            return
 
+        if value == self.response_json["SETP"]
+            return
+        
         op = "SET SETP"
 
         # params for GET
-        params = (("cmd", op + " " + str(value)),)
 
+        command = op + " " + str(value)
+        
         # avoid multiple request
-        if op == self.last_op and str(params) == self.last_params:
+        if command == self.last_op:
             _LOGGER.debug("retry for op :" + op + " avoided")
             return
 
         # request the stove
-        if self.request_stove(op, params) == False:
+        if self.request_stove(command) == False:
             return
 
         # change state
-        print("set palazzetti.SETP to: " + self.response_json["SETP"])
-        self.data["setp"] = self.response_json["SETP"]
-        # self.hass.states.set('palazzetti.SETP', self.response_json['SETP'])
+        self.data["setp"] = value
+        self.response_json.update({"SETP": value})
 
     def set_powr(self, value):
         """Set power of fire
@@ -514,18 +526,22 @@ class Palazzetti(object):
         # change state
         self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))"""
 
+    # retuens list of states: title, state, ip
     def get_data_states(self):
         return self.data
-
+    
+    # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
     def get_data_json(self):
         return self.response_json
-
+    
+    # returns JSON with configuration keys
     def get_data_config_json(self):
-        self.__config_parse()
         return vars(self.data_config_object)
 
+    # returns JSON with the DATA key content of the last GET ALLS
     def get_data_alls_json(self):
         return self.response_json_alls
 
+    # returns JSON with the DATA key content of the last GET STDT
     def get_data_stdt_json(self):
         return self.response_json_stdt
