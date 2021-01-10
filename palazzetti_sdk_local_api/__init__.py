@@ -428,7 +428,7 @@ class Palazzetti(object):
         if value < self.data_config_object.value_setpoint_min or value > self.data_config_object.value_setpoint_max:
             return
 
-        if value == self.response_json["SETP"]
+        if value == self.response_json["SETP"]:
             return
         
         op = "SET SETP"
