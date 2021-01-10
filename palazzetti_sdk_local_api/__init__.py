@@ -251,23 +251,22 @@ class Palazzetti(object):
     async def async_get_stdt(self):
         """Get counters"""
         self.op = "GET STDT"
-        await self.async_get_request()
+        await self.__async_get_request("GET STDT")
 
     # make request GET ALLS
     async def async_get_alls(self):
         """Get All data or almost ;)"""
         self.op = "GET ALLS"
-        await self.async_get_request()
+        await self.__async_get_request("GET ALLS")
 
     # make request GET CNTR
     async def async_get_cntr(self):
         """Get counters"""
         self.op = "GET CNTR"
-        await self.async_get_request()
+        await self.__async_get_request("GET CNTR")
 
-    async def async_get_request(self):
+    async def __async_get_request(self,message):
         """ request the stove """
-        message=self.op
         _response_json = None
 
         # check if op is defined or stop here
@@ -300,20 +299,19 @@ class Palazzetti(object):
         self.data["state"] = self.state
         self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
+        self.__config_parse()
 
         if self.op == "GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
             self.response_json_alls = _response
-            self.__config_parse()
         elif self.op == "GET STDT":
             self.response_json_stdt = _response
-            self.__config_parse()
 
     # send request to stove for set commands
     # why not async?
-    def request_stove(self, message):
+    def __request_stove(self, message):
         """ request the stove """
         _response_json = None
 
@@ -388,7 +386,7 @@ class Palazzetti(object):
 
     def __config_parse(self):
         asset_parser = psap(
-            get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
+            get_alls=self.response_json, get_stdt=self.response_json
         )
         asset_capabilities = asset_parser.parsed_data
         self.data_config_object = asset_capabilities
@@ -443,7 +441,7 @@ class Palazzetti(object):
             return
 
         # request the stove
-        if self.request_stove(command) == False:
+        if self.__request_stove(command) == False:
             return
 
         # change state
@@ -468,7 +466,7 @@ class Palazzetti(object):
             return
 
         # request the stove
-        if self.request_stove(op, params) == False:
+        if self.__request_stove(op, params) == False:
             return
 
         # change state
@@ -497,7 +495,7 @@ class Palazzetti(object):
             return
 
         # request the stove
-        if self.request_stove(op, params) == False:
+        if self.__request_stove(op, params) == False:
             return
 
         # change state
@@ -505,6 +503,14 @@ class Palazzetti(object):
 
     def set_status(self, value):
         """start or stop stove
+
+        fare una GET STAT
+        (questa aggiorna direttamente il config e quindi posso verificare se accendere)
+        controllo il flag_has_switch_onoff
+
+        verificare se già spenta/accesa a seconda dello stato desiderato
+        
+
         if value == None or type(value) != str :
             return
 
