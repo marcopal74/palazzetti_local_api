@@ -7,7 +7,7 @@ import socket
 import time
 
 from palazzetti_sdk_asset_parser import AssetParser as psap
-from .exceptions import * as psex
+from .exceptions import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -405,13 +405,13 @@ class Palazzetti(object):
             _power = None
 
         if (_power == None):
-            raise psex.InvalidPowerError
+            raise InvalidPowerError
 
-        if (self.data_config_object.flag_has_power == False)
+        if (self.data_config_object.flag_has_power == False):
             raise NotAvailablePowerError
 
-        if (_power < 1 or _power > 5)
-            raise psex.InvalidPowerMinMaxError
+        if (_power < 1 or _power > 5):
+            raise InvalidPowerMinMaxError
 
         return True
 
@@ -424,15 +424,15 @@ class Palazzetti(object):
             _fan = None
 
         if (_fan == None):
-            raise psex.InvalidFanError
+            raise InvalidFanError
 
         self.get_alls()
 
         _fan_limits = {}
 
         try:
-            _fan_limits["min"]: self.data_config_object.value_fan_limits[((fan - 1) * 2)],
-            _fan_limits["max"]: self.data_config_object.value_fan_limits[(((fan - 1) * 2) + 1)]
+            _fan_limits["min"] = self.data_config_object.value_fan_limits[((fan - 1) * 2)]
+            _fan_limits["max"] = self.data_config_object.value_fan_limits[(((fan - 1) * 2) + 1)]
         except IndexError as error:
             raise InvalidFanOutOfRange
         except Exception as error:
@@ -443,7 +443,7 @@ class Palazzetti(object):
             raise InvalidFanLimitsError
 
         if (_fan < _fan_limits.get("min") or _fan > _fan_limits.get("max")):
-            raise psex.InvalidFanMinMaxError
+            raise InvalidFanMinMaxError
 
         return True
 
@@ -456,13 +456,13 @@ class Palazzetti(object):
             _setpoint = None
 
         if (_setpoint == None):
-            raise psex.InvalidSetpointError
+            raise InvalidSetpointError
     
-        if (self.data_config_object.flag_has_setpoint == False)
+        if (self.data_config_object.flag_has_setpoint == False):
             raise NotAvailableSetpointError
 
-        if (_setpoint < self.data_config_object.value_setpoint_min or _setpoint > self.data_config_object.value_setpoint_max)
-            raise psex.InvalidSetpointMinMaxError
+        if (_setpoint < self.data_config_object.value_setpoint_min or _setpoint > self.data_config_object.value_setpoint_max):
+            raise InvalidSetpointMinMaxError
 
         return True
 
@@ -505,14 +505,14 @@ class Palazzetti(object):
 
     def set_label(self, value):
         """Set target temperature"""
-        if value == None or value == ""
-            raise psex.InvalidLabelValueError
+        if value == None or value == "":
+            raise InvalidLabelValueError
         
         command = "SET LABL" + " " + str(value)
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
         # change state
         self.data["label"] = value
@@ -527,11 +527,11 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
     def set_fan(self, fan, value):
         if (value == None) or (type(value) is not int):
-            raise psex.InvalidFanError
+            raise InvalidFanError
 
         self.__validate_fan(fan, value)
 
@@ -545,11 +545,11 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
     def set_power(self, value):
         if (value == None) or (type(value) is not int):
-            raise psex.InvalidPowerError
+            raise InvalidPowerError
 
         self.__validate_power(value)
 
@@ -557,7 +557,7 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
         # change state
         self.data["powr"] = value
@@ -567,7 +567,7 @@ class Palazzetti(object):
     def set_setp(self, value):
         """Set target temperature"""
         if (value == None) or (type(value) is not int):
-            raise psex.InvalidSetpointError
+            raise InvalidSetpointError
 
         self.__validate_setpoint(value)
 
@@ -578,7 +578,7 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
         # change state
         self.data["setp"] = value
@@ -587,42 +587,42 @@ class Palazzetti(object):
     def power_on(self):
 
         if self.__request_send("GET STAT") == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
-        if (self.data_config_object.flag_error_status == True)
-            raise psex.InvalidStateError
+        if (self.data_config_object.flag_error_status == True):
+            raise InvalidStateError
 
-        if (self.data_config_object.flag_has_switch_on_off != True)
-            raise psex.InvalidStateTransitionError
+        if (self.data_config_object.flag_has_switch_on_off != True):
+            raise InvalidStateTransitionError
 
-        if (self.data_config_object.value_product_is_on == False)
-            raise psex.InvalidStateTransitionError
+        if (self.data_config_object.value_product_is_on == False):
+            raise InvalidStateTransitionError
 
         command = "CMD ON"
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
     def power_off(self):
 
         if self.__request_send("GET STAT") == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
-        if (self.data_config_object.flag_error_status == True)
-            raise psex.InvalidStateError
+        if (self.data_config_object.flag_error_status == True):
+            raise InvalidStateError
 
-        if (self.data_config_object.flag_has_switch_on_off != True)
-            raise psex.InvalidStateTransitionError
+        if (self.data_config_object.flag_has_switch_on_off != True):
+            raise InvalidStateTransitionError
 
-        if (self.data_config_object.value_product_is_on == False)
-            raise psex.InvalidStateTransitionError
+        if (self.data_config_object.value_product_is_on == False):
+            raise InvalidStateTransitionError
 
         command = "CMD OFF"
 
         # request the stove
         if self.__request_send(command) == False:
-            raise psex.SendCommandError
+            raise SendCommandError
 
     # def set_status(self, value):
         """start or stop stove
