@@ -38,6 +38,14 @@ class InvalidFanMinMaxError(LocalApiError):
     """Base class for other exceptions"""
     pass
 
+class InvalidDoorError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
+class InvalidLightError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
 class InvalidPowerError(LocalApiError):
     """Base class for other exceptions"""
     pass

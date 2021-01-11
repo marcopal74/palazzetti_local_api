@@ -400,7 +400,7 @@ class Palazzetti(object):
         _power = None
 
         try:
-            _power = int(value, 10)
+            _power = int(f'{value}', 10)
         except:
             _power = None
 
@@ -419,7 +419,7 @@ class Palazzetti(object):
         _fan = None
 
         try:
-            _fan = int(value, 10)
+            _fan = int(f'{value}', 10)
         except:
             _fan = None
 
@@ -451,7 +451,7 @@ class Palazzetti(object):
         _setpoint = None
 
         try:
-            _setpoint = int(value, 10)
+            _setpoint = int(f'{value}', 10)
         except:
             _setpoint = None
 
@@ -465,6 +465,21 @@ class Palazzetti(object):
             raise InvalidSetpointMinMaxError
 
         return True
+
+    def __build_fan_command(self, fan, value):
+
+        _command = {
+            "FAN_1": "SET RFAN",
+            "FAN_2": "SET FN3L",
+            "FAN_3": "SET FN4L"
+        }
+
+        command = f'{_command.get("FAN_" + "" + fan, None)} {value}'
+
+        if (command is None):
+            raise InvalidFanOutOfRange
+
+        return command
 
     def __config_parse(self):
         asset_parser = psap(
@@ -508,9 +523,8 @@ class Palazzetti(object):
         if value == None or value == "":
             raise InvalidLabelValueError
         
-        command = "SET LABL" + " " + str(value)
+        command = f'SET LABL {str(value)}'
 
-        # request the stove
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -520,12 +534,27 @@ class Palazzetti(object):
 
     def set_fan_silent_mode(self):
 
-        command = "SET RFAN 0"
+        command = self.__build_fan_command(1, 0)
 
         if (self.data_config_object.flag_has_fan_zero_speed_fan == True):
             command = "SET SLNT 1"
 
-        # request the stove
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
+    def set_fan_auto_mode(self, fan=1):
+        
+        value = "7" # Auto Mode
+        command = self.__build_fan_command(fan, value)
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
+    def set_fan_high_mode(self, fan=1):
+        
+        value = "6" # High Mode
+        command = self.__build_fan_command(fan, value)
+
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -535,15 +564,32 @@ class Palazzetti(object):
 
         self.__validate_fan(fan, value)
 
-        _command = {
-            "FAN_1": "SET RFAN",
-            "FAN_2": "SET FN3L",
-            "FAN_3": "SET FN4L"
-        }
+        command = self.__build_fan_command(fan, value)
 
-        command = _command.get("FAN_" + "" + fan, None)
+        if self.__request_send(command) == False:
+            raise SendCommandError
 
-        # request the stove
+    def set_light(self, value):
+        if (value == None) or (type(value) is not bool):
+            raise InvalidLightError
+
+        command = f'SET LGHT {str(1 if value == True else 0)}'
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
+    def set_door(self, value):
+        if (value == None) or (type(value) is not bool):
+            raise InvalidDoorError
+
+        if self.__request_send("GET STAT") == False:
+            raise SendCommandError
+
+        if (self.data_config_object.flag_error_status == True):
+            raise InvalidStateError
+
+        command = f'SET DOOR {str(1 if value == True else 2)}'
+
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -553,9 +599,8 @@ class Palazzetti(object):
 
         self.__validate_power(value)
 
-        command = "SET POWR" + " " + str(value)
+        command = f'SET POWR {str(value)}'
 
-        # request the stove
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -571,12 +616,11 @@ class Palazzetti(object):
 
         self.__validate_setpoint(value)
 
-        command = "SET SETP" + " " + str(value)
+        command = f'SET SETP {str(value)}'
             
         # if value == self.response_json["SETP"]:
         #     return
 
-        # request the stove
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -600,7 +644,6 @@ class Palazzetti(object):
 
         command = "CMD ON"
 
-        # request the stove
         if self.__request_send(command) == False:
             raise SendCommandError
 
@@ -620,40 +663,8 @@ class Palazzetti(object):
 
         command = "CMD OFF"
 
-        # request the stove
         if self.__request_send(command) == False:
             raise SendCommandError
-
-    # def set_status(self, value):
-        """start or stop stove
-
-        fare una GET STAT
-        (questa aggiorna direttamente il config e quindi posso verificare se accendere)
-        controllo il flag_has_switch_onoff
-
-        verificare se già spenta/accesa a seconda dello stato desiderato
-        
-
-        if value == None or type(value) != str :
-            return
-
-        # only ON of OFF value allowed
-        if value != 'on' and value != 'off':
-            return
-
-        op = 'CMD'
-
-        # params for GET
-        params = (
-            ('cmd', op + ' ' + str(value)),
-        )
-
-        # request the stove
-        if self.request_stove(op, params) == False:
-            return
-
-        # change state
-        self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))"""
 
     # retuens list of states: title, state, ip
     def get_data_states(self):
