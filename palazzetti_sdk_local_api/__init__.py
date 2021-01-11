@@ -7,6 +7,7 @@ import socket
 import time
 
 from palazzetti_sdk_asset_parser import AssetParser as psap
+from .exceptions import * as psex
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -199,8 +200,6 @@ class PalDiscovery(object):
 class Palazzetti(object):
     """Palazzetti HTTP class"""
 
-    op = None
-
     response_json_alls = None
     response_json_stdt = None
 
@@ -209,9 +208,6 @@ class Palazzetti(object):
     data = None
     data_config_json = None
     data_config_object = None
-
-    last_op = None
-    last_params = None
     
     def __init__(self, host, title="uniqueID"):
         self.ip = host
@@ -250,19 +246,36 @@ class Palazzetti(object):
     # make request GET STDT
     async def async_get_stdt(self):
         """Get counters"""
-        self.op = "GET STDT"
         await self.__async_get_request("GET STDT")
 
     # make request GET ALLS
     async def async_get_alls(self):
         """Get All data or almost ;)"""
-        self.op = "GET ALLS"
         await self.__async_get_request("GET ALLS")
+
+    # make request GET LABL
+    async def async_get_label(self):
+        """Get All data or almost ;)"""
+        await self.__async_get_request("GET LABL")
+
+    # make request GET STAT
+    async def async_get_status(self):
+        """Get All data or almost ;)"""
+        await self.__async_get_request("GET STAT")
+
+    # make request GET FAND
+    async def async_get_fan_data(self):
+        """Get All data or almost ;)"""
+        await self.__async_get_request("GET FAND")
+
+    # make request GET TMPS
+    async def async_get_temperatures(self):
+        """Get All data or almost ;)"""
+        await self.__async_get_request("GET TMPS")
 
     # make request GET CNTR
     async def async_get_cntr(self):
         """Get counters"""
-        self.op = "GET CNTR"
         await self.__async_get_request("GET CNTR")
 
     async def __async_get_request(self,message):
@@ -273,7 +286,6 @@ class Palazzetti(object):
         if message is None:
             return False
 
-        # print(self.op)
         _LOGGER.debug("Executing command: {message}")
         # response = False
 
@@ -301,17 +313,17 @@ class Palazzetti(object):
         self.data["ip"] = self.ip
         self.__config_parse()
 
-        if self.op == "GET ALLS":
+        if message == "GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
             self.response_json_alls = _response
-        elif self.op == "GET STDT":
+        elif message == "GET STDT":
             self.response_json_stdt = _response
 
     # send request to stove for set commands
     # why not async?
-    def __request_stove(self, message):
+    def __request_send(self, message):
         """ request the stove """
         _response_json = None
 
@@ -319,12 +331,8 @@ class Palazzetti(object):
         if message is None:
             return False
 
-        # print(self.op)
         _LOGGER.debug("request stove " + message)
         # response = False
-
-        # save
-        self.last_op = message
 
         retry = 0
         success = False
@@ -384,6 +392,44 @@ class Palazzetti(object):
     #     asset_capabilities = asset_parser.parsed_data
     #     self.data_config_object = asset_capabilities
 
+    def __validate_power(self, value):
+        _power = None
+
+        try:
+            _power = int(value, 10)
+        except:
+            _power = None
+
+        if (_power == None):
+            raise psex.InvalidPowerError
+
+        if (self.data_config_object.flag_has_power == False)
+            raise NotAvailablePowerError
+
+        if (_power < 1 or _power > 5)
+            raise psex.InvalidPowerMinMaxError
+
+        return True
+
+    def __validate_setpoint(self, value):
+        _setpoint = None
+
+        try:
+            _setpoint = int(value, 10)
+        except:
+            _setpoint = None
+
+        if (_setpoint == None):
+            raise psex.InvalidSetpointError
+    
+        if (self.data_config_object.flag_has_setpoint == False)
+            raise NotAvailableSetpointError
+
+        if (_setpoint < self.data_config_object.value_setpoint_min or _setpoint > self.data_config_object.value_setpoint_max)
+            raise psex.InvalidSetpointMinMaxError
+
+        return True
+
     def __config_parse(self):
         asset_parser = psap(
             get_alls=self.response_json, get_stdt=self.response_json
@@ -418,59 +464,96 @@ class Palazzetti(object):
         #self.set_rfan(datas.get("RFAN", None))  # Fan
         #self.set_status(datas.get("STATUS", None))  # status
 
-    def set_setp(self, value):
+    def set_label(self, value):
         """Set target temperature"""
-        if value == None or type(value) != int:
-            return
-            
-        if value < self.data_config_object.value_setpoint_min or value > self.data_config_object.value_setpoint_max:
-            return
-
-        if value == self.response_json["SETP"]:
+        if value == None or value == ""
             return
         
-        op = "SET SETP"
-
-        # params for GET
-
-        command = op + " " + str(value)
-        
-        # avoid multiple request
-        if command == self.last_op:
-            _LOGGER.debug("retry for op :" + op + " avoided")
-            return
+        command = "SET LABL" + " " + str(value)
 
         # request the stove
-        if self.__request_stove(command) == False:
+        if self.__request_send(command) == False:
+            return
+
+        # change state
+        self.data["label"] = value
+        self.response_json.update({"LABEL": value})
+
+    def set_power(self, value):
+        if (value == None) or (type(value) is not int):
+            return
+
+        self.__validate_power(value)
+
+        command = "SET POWR" + " " + str(value)
+
+        # request the stove
+        if self.__request_send(command) == False:
+            return
+
+        # change state
+        self.data["powr"] = value
+        self.response_json.update({"POWR": value})
+
+    def set_setp(self, value):
+        """Set target temperature"""
+        if (value == None) or (type(value) is not int):
+            return
+
+        self.__validate_setpoint(value)
+
+        command = "SET SETP" + " " + str(value)
+            
+        # if value == self.response_json["SETP"]:
+        #     return
+
+        # request the stove
+        if self.__request_send(command) == False:
             return
 
         # change state
         self.data["setp"] = value
         self.response_json.update({"SETP": value})
 
-    def set_powr(self, value):
-        """Set power of fire
-        if value is None :
-            return
+    def power_on(self):
 
-        op = 'SET POWR'
+        if self.__request_send("GET STAT") == False:
+            raise psex.SendCommandError
 
-        # params for GET
-        params = (
-            ('cmd', op + ' ' + str(value)),
-        )
+        if (self.data_config_object.flag_error_status == True)
+            raise psex.InvalidStateError
 
-        # avoid multiple request
-        if op == self.last_op and str(params) == self.last_params :
-            _LOGGER.debug('retry for op :' +op+' avoided')
-            return
+        if (self.data_config_object.flag_has_switch_on_off != True)
+            raise psex.InvalidStateTransitionError
+
+        if (self.data_config_object.value_product_is_on == False)
+            raise psex.InvalidStateTransitionError
+
+        command = "CMD ON"
 
         # request the stove
-        if self.__request_stove(op, params) == False:
-            return
+        if self.__request_send(command) == False:
+            return psex.SendCommandError
 
-        # change state
-        self.hass.states.set('palazzetti.PWR', self.response_json['PWR'])"""
+    def power_off(self):
+
+        if self.__request_send("GET STAT") == False:
+            raise psex.SendCommandError
+
+        if (self.data_config_object.flag_error_status == True)
+            raise psex.InvalidStateError
+
+        if (self.data_config_object.flag_has_switch_on_off != True)
+            raise psex.InvalidStateTransitionError
+
+        if (self.data_config_object.value_product_is_on == False)
+            raise psex.InvalidStateTransitionError
+
+        command = "CMD OFF"
+
+        # request the stove
+        if self.__request_send(command) == False:
+            return psex.SendCommandError
 
     def set_rfan(self, value):
         """Set fan level
@@ -495,13 +578,13 @@ class Palazzetti(object):
             return
 
         # request the stove
-        if self.__request_stove(op, params) == False:
+        if self.__request_send(op, params) == False:
             return
 
         # change state
         self.hass.states.async_set('palazzetti.F2L', self.response_json['F2L'])"""
 
-    def set_status(self, value):
+    # def set_status(self, value):
         """start or stop stove
 
         fare una GET STAT
