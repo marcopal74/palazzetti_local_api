@@ -11,7 +11,7 @@ def main_findip():
     loop = asyncio.get_event_loop()
 
     print("Chiamata diretta:")
-    found_ips=loop.run_until_complete(api_discovery.discovery())
+    found_ips=loop.run_until_complete(api_discovery.discovery_UDP())
     print(found_ips)
 
     if not found_ips:
@@ -176,4 +176,4 @@ def main7():
     print(f"From checkIP_HTTP {is_IP_OK}")
 
 if __name__ == "__main__":
-    main4()
+    main_findip()

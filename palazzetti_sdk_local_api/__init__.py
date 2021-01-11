@@ -17,7 +17,7 @@ DISCOVERY_MESSAGE = b"plzbridge?"
 BUFFER_SIZE = 2048
 HTTP_TIMEOUT = 15
 
-#to be completed!!
+# to be completed!!
 class PalComm(object):
     async def async_callUDP(self, host, message):
         server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -87,7 +87,7 @@ class PalComm(object):
 
         # If no response return
         if _response_json["SUCCESS"] != True:
-            #maybe connection error between ConnBox and Stove
+            # maybe connection error between ConnBox and Stove
             return False
 
         return _response_json["DATA"]
@@ -109,24 +109,25 @@ class PalComm(object):
             response = requests.get(queryStr, params=params, timeout=30)
         except requests.exceptions.ReadTimeout:
             # timeout ( can happend when wifi is used )
-            _LOGGER.error('Timeout reach for request : ' + queryStr)
+            _LOGGER.error("Timeout reach for request : " + queryStr)
             return False
         except requests.exceptions.ConnectTimeout:
             # equivalent of ping
-            _LOGGER.error('Please check parm ip : ' + self.ip)
+            _LOGGER.error("Please check parm ip : " + self.ip)
             return False
-        
+
         if response == False:
             return False
-        
+
         _response_json = json.loads(response.text)
-        
+
         # If no response return
         if _response_json["SUCCESS"] != True:
-            #maybe connection error between ConnBox and Stove
+            # maybe connection error between ConnBox and Stove
             return False
 
         return _response_json["DATA"]
+
 
 class PalDiscovery(object):
     async def discovery_UDP(self):
@@ -161,26 +162,26 @@ class PalDiscovery(object):
     async def checkIP_UDP(self, testIP):
         """verify the IP is a Connection Box using UDP"""
 
-        api_discovery=PalComm()    
+        api_discovery = PalComm()
         use_ip = testIP
-        
+
         _response = await api_discovery.async_callUDP(use_ip, DISCOVERY_MESSAGE)
-        
+
         if not _response:
             return False
-        
+
         return True
 
     async def checkIP_HTTP(self, testIP):
         """verify the IP is a Connection Box using HTTP call with command GET LABL"""
-        api_discovery=PalComm()    
+        api_discovery = PalComm()
         use_ip = testIP
-        
+
         _response = await api_discovery.async_getHTTP(use_ip, "GET STDT")
-        
+
         if not _response:
             return False
-        
+
         return True
 
     async def checkIP(self, testIP):
@@ -197,6 +198,7 @@ class PalDiscovery(object):
 
         return True
 
+
 class Palazzetti(object):
     """Palazzetti HTTP class"""
 
@@ -208,10 +210,10 @@ class Palazzetti(object):
     data = None
     data_config_json = None
     data_config_object = None
-    
+
     def __init__(self, host, title="uniqueID"):
         self.ip = host
-        self.palsocket=PalComm()
+        self.palsocket = PalComm()
         self.state = "online"
         self.unique_id = title
         self.data = {}
@@ -282,7 +284,7 @@ class Palazzetti(object):
         """Get counters"""
         await self.__async_get_request("GET CNTR")
 
-    async def __async_get_request(self,message):
+    async def __async_get_request(self, message):
         """ request the stove """
         _response_json = None
 
@@ -293,8 +295,8 @@ class Palazzetti(object):
         _LOGGER.debug("Executing command: {message}")
         # response = False
 
-        #api_discovery=PalComm()
-        #_response = await api_discovery.async_getHTTP(self.ip, message)
+        # api_discovery=PalComm()
+        # _response = await api_discovery.async_getHTTP(self.ip, message)
         _response = await self.palsocket.async_getHTTP(self.ip, message)
 
         if not _response:
@@ -302,15 +304,15 @@ class Palazzetti(object):
             self.data["state"] = self.state
             self.response_json.update({"icon": "mdi:link-off"})
             return False
-        
-        #merge the result with the exixting responnse_json
+
+        # merge the result with the exixting responnse_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
             response_merged.update(_response)
             self.response_json = response_merged
         else:
             self.response_json = _response
-        
+
         self.state = "online"
         self.data["state"] = self.state
         self.response_json.update({"icon": "mdi:link"})
@@ -346,8 +348,8 @@ class Palazzetti(object):
         # error returned by Cbox
         while not success:
             # let's go baby
-            #api_discovery=PalComm()
-            #_response = await api_discovery.async_getHTTP(self.ip, message)
+            # api_discovery=PalComm()
+            # _response = await api_discovery.async_getHTTP(self.ip, message)
             _response = self.palsocket.getHTTP(self.ip, message)
 
             # cbox return error
@@ -369,7 +371,7 @@ class Palazzetti(object):
                         + ")"
                     )
                     break
-            
+
             success = True
 
         # merge the result with the exixting responnse_json
@@ -379,7 +381,7 @@ class Palazzetti(object):
             self.response_json = response_merged
         else:
             self.response_json = _response
-        
+
         self.state = "online"
         self.data["state"] = self.state
         self.response_json.update({"icon": "mdi:link"})
@@ -388,29 +390,21 @@ class Palazzetti(object):
 
         return _response
 
-    # update configuration: call json parse function
-    # async def async_config_parse(self):
-    #     asset_parser = psap(
-    #         get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
-    #     )
-    #     asset_capabilities = asset_parser.parsed_data
-    #     self.data_config_object = asset_capabilities
-
     def __validate_power(self, value):
         _power = None
 
         try:
-            _power = int(f'{value}', 10)
+            _power = int(f"{value}", 10)
         except:
             _power = None
 
-        if (_power == None):
+        if _power == None:
             raise InvalidPowerError
 
-        if (self.data_config_object.flag_has_power == False):
+        if self.data_config_object.flag_has_power == False:
             raise NotAvailablePowerError
 
-        if (_power < 1 or _power > 5):
+        if _power < 1 or _power > 5:
             raise InvalidPowerMinMaxError
 
         return True
@@ -419,30 +413,34 @@ class Palazzetti(object):
         _fan = None
 
         try:
-            _fan = int(f'{value}', 10)
+            _fan = int(f"{value}", 10)
         except:
             _fan = None
 
-        if (_fan == None):
+        if _fan == None:
             raise InvalidFanError
 
-        self.get_alls()
+        self.async_get_alls()
 
         _fan_limits = {}
 
         try:
-            _fan_limits["min"] = self.data_config_object.value_fan_limits[((fan - 1) * 2)]
-            _fan_limits["max"] = self.data_config_object.value_fan_limits[(((fan - 1) * 2) + 1)]
+            _fan_limits["min"] = self.data_config_object.value_fan_limits[
+                ((fan - 1) * 2)
+            ]
+            _fan_limits["max"] = self.data_config_object.value_fan_limits[
+                (((fan - 1) * 2) + 1)
+            ]
         except IndexError as error:
             raise InvalidFanOutOfRange
         except Exception as error:
             _fan_limits["min"] = None
             _fan_limits["max"] = None
 
-        if ((_fan_limits.get("min", None) == None) or (_fan_limits.get("max", None))):
+        if (_fan_limits.get("min", None) == None) or (_fan_limits.get("max", None)):
             raise InvalidFanLimitsError
 
-        if (_fan < _fan_limits.get("min") or _fan > _fan_limits.get("max")):
+        if _fan < _fan_limits.get("min") or _fan > _fan_limits.get("max"):
             raise InvalidFanMinMaxError
 
         return True
@@ -451,48 +449,44 @@ class Palazzetti(object):
         _setpoint = None
 
         try:
-            _setpoint = int(f'{value}', 10)
+            _setpoint = int(f"{value}", 10)
         except:
             _setpoint = None
 
-        if (_setpoint == None):
+        if _setpoint == None:
             raise InvalidSetpointError
-    
-        if (self.data_config_object.flag_has_setpoint == False):
+
+        if self.data_config_object.flag_has_setpoint == False:
             raise NotAvailableSetpointError
 
-        if (_setpoint < self.data_config_object.value_setpoint_min or _setpoint > self.data_config_object.value_setpoint_max):
+        if (
+            _setpoint < self.data_config_object.value_setpoint_min
+            or _setpoint > self.data_config_object.value_setpoint_max
+        ):
             raise InvalidSetpointMinMaxError
 
         return True
 
     def __build_fan_command(self, fan, value):
 
-        _command = {
-            "FAN_1": "SET RFAN",
-            "FAN_2": "SET FN3L",
-            "FAN_3": "SET FN4L"
-        }
+        _command = {"FAN_1": "SET RFAN", "FAN_2": "SET FN3L", "FAN_3": "SET FN4L"}
 
         command = f'{_command.get("FAN_" + "" + fan, None)} {value}'
 
-        if (command is None):
+        if command is None:
             raise InvalidFanOutOfRange
 
         return command
 
     def __config_parse(self):
-        asset_parser = psap(
-            get_alls=self.response_json, get_stdt=self.response_json
-        )
+        asset_parser = psap(get_alls=self.response_json, get_stdt=self.response_json)
         asset_capabilities = asset_parser.parsed_data
         self.data_config_object = asset_capabilities
 
-    # TODO: Rename this function to get_setpoint
-    def get_sept(self):
+    def get_setpoint(self):
         """Get target temperature for climate"""
         if self.response_json == None or self.response_json["SETP"] == None:
-            return 
+            return
 
         return self.response_json["SETP"]
 
@@ -513,17 +507,17 @@ class Palazzetti(object):
     # TODO: Is it possible to remove this function?
     def set_parameters(self, datas):
         """set parameters following service call"""
-        self.set_setp(datas.get("SETP", None))  # temperature
-        #self.set_powr(datas.get("PWR", None))  # fire power
-        #self.set_rfan(datas.get("RFAN", None))  # Fan
-        #self.set_status(datas.get("STATUS", None))  # status
+        self.set_setpoint(datas.get("SETP", None))  # temperature
+        # self.set_powr(datas.get("PWR", None))  # fire power
+        # self.set_rfan(datas.get("RFAN", None))  # Fan
+        # self.set_status(datas.get("STATUS", None))  # status
 
     def set_label(self, value):
         """Set target temperature"""
         if value == None or value == "":
             raise InvalidLabelValueError
-        
-        command = f'SET LABL {str(value)}'
+
+        command = f"SET LABL {str(value)}"
 
         if self.__request_send(command) == False:
             raise SendCommandError
@@ -536,23 +530,23 @@ class Palazzetti(object):
 
         command = self.__build_fan_command(1, 0)
 
-        if (self.data_config_object.flag_has_fan_zero_speed_fan == True):
+        if self.data_config_object.flag_has_fan_zero_speed_fan == True:
             command = "SET SLNT 1"
 
         if self.__request_send(command) == False:
             raise SendCommandError
 
     def set_fan_auto_mode(self, fan=1):
-        
-        value = "7" # Auto Mode
+
+        value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
 
         if self.__request_send(command) == False:
             raise SendCommandError
 
     def set_fan_high_mode(self, fan=1):
-        
-        value = "6" # High Mode
+
+        value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
 
         if self.__request_send(command) == False:
@@ -573,7 +567,7 @@ class Palazzetti(object):
         if (value == None) or (type(value) is not bool):
             raise InvalidLightError
 
-        command = f'SET LGHT {str(1 if value == True else 0)}'
+        command = f"SET LGHT {str(1 if value == True else 0)}"
 
         if self.__request_send(command) == False:
             raise SendCommandError
@@ -585,10 +579,10 @@ class Palazzetti(object):
         if self.__request_send("GET STAT") == False:
             raise SendCommandError
 
-        if (self.data_config_object.flag_error_status == True):
+        if self.data_config_object.flag_error_status == True:
             raise InvalidStateError
 
-        command = f'SET DOOR {str(1 if value == True else 2)}'
+        command = f"SET DOOR {str(1 if value == True else 2)}"
 
         if self.__request_send(command) == False:
             raise SendCommandError
@@ -599,7 +593,7 @@ class Palazzetti(object):
 
         self.__validate_power(value)
 
-        command = f'SET POWR {str(value)}'
+        command = f"SET POWR {str(value)}"
 
         if self.__request_send(command) == False:
             raise SendCommandError
@@ -608,20 +602,38 @@ class Palazzetti(object):
         self.data["powr"] = value
         self.response_json.update({"POWR": value})
 
-    # TODO: Rename to set_setpoint
-    def set_setp(self, value):
+    def set_setpoint(self, value):
         """Set target temperature"""
         if (value == None) or (type(value) is not int):
             raise InvalidSetpointError
 
         self.__validate_setpoint(value)
 
-        command = f'SET SETP {str(value)}'
-            
+        command = f"SET SETP {str(value)}"
+
         # if value == self.response_json["SETP"]:
         #     return
 
         if self.__request_send(command) == False:
+            raise SendCommandError
+
+        # change state
+        self.data["setp"] = value
+        self.response_json.update({"SETP": value})
+
+    async def async_set_setpoint(self, value):
+        """Set target temperature"""
+        if (value == None) or (type(value) is not int):
+            raise InvalidSetpointError
+
+        self.__validate_setpoint(value)
+
+        command = f"SET SETP {str(value)}"
+
+        # if value == self.response_json["SETP"]:
+        #     return
+
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
         # change state
@@ -633,13 +645,13 @@ class Palazzetti(object):
         if self.__request_send("GET STAT") == False:
             raise SendCommandError
 
-        if (self.data_config_object.flag_error_status == True):
+        if self.data_config_object.flag_error_status == True:
             raise InvalidStateError
 
-        if (self.data_config_object.flag_has_switch_on_off != True):
+        if self.data_config_object.flag_has_switch_on_off != True:
             raise InvalidStateTransitionError
 
-        if (self.data_config_object.value_product_is_on == False):
+        if self.data_config_object.value_product_is_on == False:
             raise InvalidStateTransitionError
 
         command = "CMD ON"
@@ -652,13 +664,13 @@ class Palazzetti(object):
         if self.__request_send("GET STAT") == False:
             raise SendCommandError
 
-        if (self.data_config_object.flag_error_status == True):
+        if self.data_config_object.flag_error_status == True:
             raise InvalidStateError
 
-        if (self.data_config_object.flag_has_switch_on_off != True):
+        if self.data_config_object.flag_has_switch_on_off != True:
             raise InvalidStateTransitionError
 
-        if (self.data_config_object.value_product_is_on == False):
+        if self.data_config_object.value_product_is_on == False:
             raise InvalidStateTransitionError
 
         command = "CMD OFF"
@@ -669,11 +681,11 @@ class Palazzetti(object):
     # retuens list of states: title, state, ip
     def get_data_states(self):
         return self.data
-    
+
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
     def get_data_json(self):
         return self.response_json
-    
+
     # returns JSON with configuration keys
     def get_data_config_json(self):
         return vars(self.data_config_object)
