@@ -243,37 +243,41 @@ class Palazzetti(object):
             253: "NOPELLET ALARM",
         }
 
-    # make request GET STDT
+    # TODO: Rename to get_static_data
     async def async_get_stdt(self):
         """Get counters"""
         await self.__async_get_request("GET STDT")
 
-    # make request GET ALLS
+    # TODO: Rename to get_alls
     async def async_get_alls(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET ALLS")
 
-    # make request GET LABL
+    # TODO: Remove async_ from name
     async def async_get_label(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET LABL")
 
-    # make request GET STAT
+    # TODO: Remove async_ from name
     async def async_get_status(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET STAT")
 
-    # make request GET FAND
+    # TODO: Remove async_ from name
     async def async_get_fan_data(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET FAND")
 
-    # make request GET TMPS
+    async def get_power(self):
+        """Get All data or almost ;)"""
+        await self.__async_get_request("GET POWR")
+
+    # TODO: Remove async_ from name
     async def async_get_temperatures(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET TMPS")
 
-    # make request GET CNTR
+    # TODO: Rename to get_counters
     async def async_get_cntr(self):
         """Get counters"""
         await self.__async_get_request("GET CNTR")
@@ -411,6 +415,38 @@ class Palazzetti(object):
 
         return True
 
+    def __validate_fan(self, fan, value):
+        _fan = None
+
+        try:
+            _fan = int(value, 10)
+        except:
+            _fan = None
+
+        if (_fan == None):
+            raise psex.InvalidFanError
+
+        self.get_alls()
+
+        _fan_limits = {}
+
+        try:
+            _fan_limits["min"]: self.data_config_object.value_fan_limits[((fan - 1) * 2)],
+            _fan_limits["max"]: self.data_config_object.value_fan_limits[(((fan - 1) * 2) + 1)]
+        except IndexError as error:
+            raise InvalidFanOutOfRange
+        except Exception as error:
+            _fan_limits["min"] = None
+            _fan_limits["max"] = None
+
+        if ((_fan_limits.get("min", None) == None) or (_fan_limits.get("max", None))):
+            raise InvalidFanLimitsError
+
+        if (_fan < _fan_limits.get("min") or _fan > _fan_limits.get("max")):
+            raise psex.InvalidFanMinMaxError
+
+        return True
+
     def __validate_setpoint(self, value):
         _setpoint = None
 
@@ -437,6 +473,7 @@ class Palazzetti(object):
         asset_capabilities = asset_parser.parsed_data
         self.data_config_object = asset_capabilities
 
+    # TODO: Rename this function to get_setpoint
     def get_sept(self):
         """Get target temperature for climate"""
         if self.response_json == None or self.response_json["SETP"] == None:
@@ -446,6 +483,7 @@ class Palazzetti(object):
 
     # get generic KEY in the datas
     # if key doesn't exist returns None
+    # TODO: Is it possible to remove this function?
     def get_key(self, mykey="STATUS"):
         """Get target temperature for climate"""
         if (
@@ -457,6 +495,7 @@ class Palazzetti(object):
 
         return self.response_json[mykey]
 
+    # TODO: Is it possible to remove this function?
     def set_parameters(self, datas):
         """set parameters following service call"""
         self.set_setp(datas.get("SETP", None))  # temperature
@@ -467,21 +506,50 @@ class Palazzetti(object):
     def set_label(self, value):
         """Set target temperature"""
         if value == None or value == ""
-            return
+            raise psex.InvalidLabelValueError
         
         command = "SET LABL" + " " + str(value)
 
         # request the stove
         if self.__request_send(command) == False:
-            return
+            raise psex.SendCommandError
 
         # change state
         self.data["label"] = value
         self.response_json.update({"LABEL": value})
 
+    def set_fan_silent_mode(self):
+
+        command = "SET RFAN 0"
+
+        if (self.data_config_object.flag_has_fan_zero_speed_fan == True):
+            command = "SET SLNT 1"
+
+        # request the stove
+        if self.__request_send(command) == False:
+            raise psex.SendCommandError
+
+    def set_fan(self, fan, value):
+        if (value == None) or (type(value) is not int):
+            raise psex.InvalidFanError
+
+        self.__validate_fan(fan, value)
+
+        _command = {
+            "FAN_1": "SET RFAN",
+            "FAN_2": "SET FN3L",
+            "FAN_3": "SET FN4L"
+        }
+
+        command = _command.get("FAN_" + "" + fan, None)
+
+        # request the stove
+        if self.__request_send(command) == False:
+            raise psex.SendCommandError
+
     def set_power(self, value):
         if (value == None) or (type(value) is not int):
-            return
+            raise psex.InvalidPowerError
 
         self.__validate_power(value)
 
@@ -489,16 +557,17 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            return
+            raise psex.SendCommandError
 
         # change state
         self.data["powr"] = value
         self.response_json.update({"POWR": value})
 
+    # TODO: Rename to set_setpoint
     def set_setp(self, value):
         """Set target temperature"""
         if (value == None) or (type(value) is not int):
-            return
+            raise psex.InvalidSetpointError
 
         self.__validate_setpoint(value)
 
@@ -509,7 +578,7 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            return
+            raise psex.SendCommandError
 
         # change state
         self.data["setp"] = value
@@ -533,7 +602,7 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            return psex.SendCommandError
+            raise psex.SendCommandError
 
     def power_off(self):
 
@@ -553,36 +622,7 @@ class Palazzetti(object):
 
         # request the stove
         if self.__request_send(command) == False:
-            return psex.SendCommandError
-
-    def set_rfan(self, value):
-        """Set fan level
-
-        if value == None:
-            return
-
-        # must be str or int
-        if type(value) != str and type(value) != int:
-            return
-
-        op = 'SET RFAN'
-
-        # params for GET
-        params = (
-            ('cmd', op + ' ' + str(value)),
-        )
-
-        # avoid multiple request
-        if op == self.last_op and str(params) == self.last_params :
-            _LOGGER.debug('retry for op :' +op+' avoided')
-            return
-
-        # request the stove
-        if self.__request_send(op, params) == False:
-            return
-
-        # change state
-        self.hass.states.async_set('palazzetti.F2L', self.response_json['F2L'])"""
+            raise psex.SendCommandError
 
     # def set_status(self, value):
         """start or stop stove

@@ -18,6 +18,26 @@ class NotAvailablePowerError(LocalApiError):
     """Base class for other exceptions"""
     pass
 
+class InvalidLabelValueError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
+class InvalidFanError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
+class InvalidFanLimitsError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
+class InvalidFanOutOfRange(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
+class InvalidFanMinMaxError(LocalApiError):
+    """Base class for other exceptions"""
+    pass
+
 class InvalidPowerError(LocalApiError):
     """Base class for other exceptions"""
     pass
