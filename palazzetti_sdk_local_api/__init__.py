@@ -538,6 +538,19 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
+    async def async_set_power(self, value):
+
+        self.__validate_power(value)
+
+        command = f"SET POWR {str(value)}"
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
+        # change state
+        self.data["powr"] = value
+        self.response_json.update({"POWR": value})
+
     async def async_set_fan_auto_mode(self, fan=1):
 
         value = "7"  # Auto Mode
@@ -555,8 +568,6 @@ class Palazzetti(object):
             raise SendCommandError
 
     async def async_set_fan(self, fan, value):
-        if (value == None) or (type(value) is not int):
-            raise InvalidFanError
 
         self.__validate_fan(fan, value)
 
@@ -591,8 +602,6 @@ class Palazzetti(object):
 
     async def async_set_setpoint(self, value):
         """Set target temperature"""
-        if (value == None) or (type(value) is not int):
-            raise InvalidSetpointError
 
         self.__validate_setpoint(value)
 
