@@ -270,7 +270,7 @@ class Palazzetti(object):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET FAND")
 
-    async def get_power(self):
+    async def async_get_power(self):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET POWR")
 
@@ -493,6 +493,7 @@ class Palazzetti(object):
     # get generic KEY in the datas
     # if key doesn't exist returns None
     # TODO: Is it possible to remove this function?
+    # BYNOW does not generate risks
     def get_key(self, mykey="STATUS"):
         """Get target temperature for climate"""
         if (
@@ -505,54 +506,55 @@ class Palazzetti(object):
         return self.response_json[mykey]
 
     # TODO: Is it possible to remove this function?
-    def set_parameters(self, datas):
+    # BYNOW it has been limited to setpoint only
+    async def set_parameters(self, datas):
         """set parameters following service call"""
-        self.set_setpoint(datas.get("SETP", None))  # temperature
+        await self.async_set_setpoint(datas.get("SETP", None))  # temperature
         # self.set_powr(datas.get("PWR", None))  # fire power
         # self.set_rfan(datas.get("RFAN", None))  # Fan
         # self.set_status(datas.get("STATUS", None))  # status
 
-    def set_label(self, value):
+    async def async_set_label(self, value):
         """Set target temperature"""
         if value == None or value == "":
             raise InvalidLabelValueError
 
         command = f"SET LABL {str(value)}"
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
         # change state
         self.data["label"] = value
         self.response_json.update({"LABEL": value})
 
-    def set_fan_silent_mode(self):
+    async def async_set_fan_silent_mode(self):
 
         command = self.__build_fan_command(1, 0)
 
         if self.data_config_object.flag_has_fan_zero_speed_fan == True:
             command = "SET SLNT 1"
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan_auto_mode(self, fan=1):
+    async def async_set_fan_auto_mode(self, fan=1):
 
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan_high_mode(self, fan=1):
+    async def async_set_fan_high_mode(self, fan=1):
 
         value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan(self, fan, value):
+    async def async_set_fan(self, fan, value):
         if (value == None) or (type(value) is not int):
             raise InvalidFanError
 
@@ -560,23 +562,23 @@ class Palazzetti(object):
 
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_light(self, value):
+    async def async_set_light(self, value):
         if (value == None) or (type(value) is not bool):
             raise InvalidLightError
 
         command = f"SET LGHT {str(1 if value == True else 0)}"
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_door(self, value):
+    async def async_set_door(self, value):
         if (value == None) or (type(value) is not bool):
             raise InvalidDoorError
 
-        if self.__request_send("GET STAT") == False:
+        if await self.__async_get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -584,42 +586,8 @@ class Palazzetti(object):
 
         command = f"SET DOOR {str(1 if value == True else 2)}"
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
-
-    def set_power(self, value):
-        if (value == None) or (type(value) is not int):
-            raise InvalidPowerError
-
-        self.__validate_power(value)
-
-        command = f"SET POWR {str(value)}"
-
-        if self.__request_send(command) == False:
-            raise SendCommandError
-
-        # change state
-        self.data["powr"] = value
-        self.response_json.update({"POWR": value})
-
-    def set_setpoint(self, value):
-        """Set target temperature"""
-        if (value == None) or (type(value) is not int):
-            raise InvalidSetpointError
-
-        self.__validate_setpoint(value)
-
-        command = f"SET SETP {str(value)}"
-
-        # if value == self.response_json["SETP"]:
-        #     return
-
-        if self.__request_send(command) == False:
-            raise SendCommandError
-
-        # change state
-        self.data["setp"] = value
-        self.response_json.update({"SETP": value})
 
     async def async_set_setpoint(self, value):
         """Set target temperature"""
