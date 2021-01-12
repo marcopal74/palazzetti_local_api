@@ -1,10 +1,12 @@
 import logging, asyncio, json, requests, aiohttp
 
 from palazzetti_sdk_local_api import Palazzetti, PalDiscovery, PalComm
+# Run python3 setup.py build_py before execute
+from build.lib.palazzetti_sdk_local_api_sync import SyncPalazzetti, SyncPalDiscovery, SyncPalComm
 
 _LOGGER = logging.getLogger(__name__)
 
-TEST_IP = "192.168.1.130"
+TEST_IP = "192.168.18.21"
 
 def main_findip():
     api_discovery=PalDiscovery()
@@ -113,11 +115,15 @@ def main4():
 
     #use_ip="192.168.1.133"
     print(f"Using IP: {use_ip}")
-    api=Palazzetti(use_ip)
+    api=SyncPalazzetti(use_ip)
     
     print("Recupera TUTTO")
     #loop.run_until_complete(api.async_get_alls())
     #loop.close()
+
+    print(api.get_alls())
+    api.get_stdt()
+
     print(f"{api.get_data_json()}")
     #key volutamente errata
     print(api.get_key('MACive'))
@@ -176,4 +182,4 @@ def main7():
     print(f"From checkIP_HTTP {is_IP_OK}")
 
 if __name__ == "__main__":
-    main_findip()
+    main4()

@@ -19,7 +19,7 @@ HTTP_TIMEOUT = 15
 
 # to be completed!!
 class PalComm(object):
-    async def async_callUDP(self, host, message):
+    async def callUDP(self, host, message):
         server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
@@ -43,56 +43,7 @@ class PalComm(object):
             except socket.timeout:
                 return
 
-    async def async_getHTTP(self, host, message):
-        queryStr = "http://" + host + "/cgi-bin/sendmsg.lua"
-        # params for GET
-        params = (("cmd", message),)
-        _response_json = None
-
-        # check if op is defined or stop here
-        if message is None:
-            return False
-        # print(message)
-
-        _LOGGER.debug("Executing command: {message}")
-
-        mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
-
-        try:
-            async with aiohttp.ClientSession(timeout=mytimeout) as session:
-                async with session.get(queryStr, params=params) as response:
-                    if response.status != 200:
-                        _LOGGER.error(
-                            "Error during api request : http status returned is {}".format(
-                                response.status
-                            )
-                        )
-                        response = False
-                    else:
-                        # save response in json object
-                        _response_json = json.loads(await response.text())
-
-        except aiohttp.ClientError as client_error:
-            _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            response = False
-        except json.decoder.JSONDecodeError as err:
-            _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            self.state = "offline"
-            response = False
-        except:
-            response = False
-
-        if response == False:
-            return False
-
-        # If no response return
-        if _response_json["SUCCESS"] != True:
-            # maybe connection error between ConnBox and Stove
-            return False
-
-        return _response_json["DATA"]
-
-    def getHTTP(self, host, message):
+    async def getHTTP(self, host, message):
         queryStr = "http://" + host + "/cgi-bin/sendmsg.lua"
         # params for GET
         params = (("cmd", message),)
@@ -165,7 +116,7 @@ class PalDiscovery(object):
         api_discovery = PalComm()
         use_ip = testIP
 
-        _response = await api_discovery.async_callUDP(use_ip, DISCOVERY_MESSAGE)
+        _response = await api_discovery.callUDP(use_ip, DISCOVERY_MESSAGE)
 
         if not _response:
             return False
@@ -177,7 +128,7 @@ class PalDiscovery(object):
         api_discovery = PalComm()
         use_ip = testIP
 
-        _response = await api_discovery.async_getHTTP(use_ip, "GET STDT")
+        _response = await api_discovery.getHTTP(use_ip, "GET STDT")
 
         if not _response:
             return False
@@ -205,7 +156,7 @@ class Palazzetti(object):
     response_json_alls = None
     response_json_stdt = None
 
-    response_json = None
+    response_json = {}
 
     data = None
     data_config_json = None
@@ -246,45 +197,45 @@ class Palazzetti(object):
         }
 
     # TODO: Rename to get_static_data
-    async def async_get_stdt(self):
+    async def get_stdt(self):
         """Get counters"""
-        await self.__async_get_request("GET STDT")
+        await self.__get_request("GET STDT")
 
     # TODO: Rename to get_alls
-    async def async_get_alls(self):
+    async def get_alls(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET ALLS")
+        await self.__get_request("GET ALLS")
 
     # TODO: Remove async_ from name
-    async def async_get_label(self):
+    async def get_label(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET LABL")
+        await self.__get_request("GET LABL")
 
     # TODO: Remove async_ from name
-    async def async_get_status(self):
+    async def get_status(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET STAT")
+        await self.__get_request("GET STAT")
 
     # TODO: Remove async_ from name
-    async def async_get_fan_data(self):
+    async def get_fan_data(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET FAND")
+        await self.__get_request("GET FAND")
 
-    async def async_get_power(self):
+    async def get_power(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET POWR")
+        await self.__get_request("GET POWR")
 
     # TODO: Remove async_ from name
-    async def async_get_temperatures(self):
+    async def get_temperatures(self):
         """Get All data or almost ;)"""
-        await self.__async_get_request("GET TMPS")
+        await self.__get_request("GET TMPS")
 
     # TODO: Rename to get_counters
-    async def async_get_cntr(self):
+    async def get_cntr(self):
         """Get counters"""
-        await self.__async_get_request("GET CNTR")
+        await self.__get_request("GET CNTR")
 
-    async def __async_get_request(self, message):
+    async def __get_request(self, message):
         """ request the stove """
         _response_json = None
 
@@ -297,7 +248,7 @@ class Palazzetti(object):
 
         # api_discovery=PalComm()
         # _response = await api_discovery.async_getHTTP(self.ip, message)
-        _response = await self.palsocket.async_getHTTP(self.ip, message)
+        _response = await self.palsocket.getHTTP(self.ip, message)
 
         if not _response:
             self.state = "offline"
@@ -349,7 +300,7 @@ class Palazzetti(object):
         while not success:
             # let's go baby
             # api_discovery=PalComm()
-            # _response = await api_discovery.async_getHTTP(self.ip, message)
+            # _response = await api_discovery.getHTTP(self.ip, message)
             _response = self.palsocket.getHTTP(self.ip, message)
 
             # cbox return error
@@ -420,7 +371,7 @@ class Palazzetti(object):
         if _fan == None:
             raise InvalidFanError
 
-        self.async_get_alls()
+        self.get_alls()
 
         _fan_limits = {}
 
@@ -509,36 +460,36 @@ class Palazzetti(object):
     # BYNOW it has been limited to setpoint only
     async def set_parameters(self, datas):
         """set parameters following service call"""
-        await self.async_set_setpoint(datas.get("SETP", None))  # temperature
+        await self.set_setpoint(datas.get("SETP", None))  # temperature
         # self.set_powr(datas.get("PWR", None))  # fire power
         # self.set_rfan(datas.get("RFAN", None))  # Fan
         # self.set_status(datas.get("STATUS", None))  # status
 
-    async def async_set_label(self, value):
+    async def set_label(self, value):
         """Set target temperature"""
         if value == None or value == "":
             raise InvalidLabelValueError
 
         command = f"SET LABL {str(value)}"
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
         # change state
         self.data["label"] = value
         self.response_json.update({"LABEL": value})
 
-    async def async_set_fan_silent_mode(self):
+    async def set_fan_silent_mode(self):
 
         command = self.__build_fan_command(1, 0)
 
         if self.data_config_object.flag_has_fan_zero_speed_fan == True:
             command = "SET SLNT 1"
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_power(self, value):
+    async def set_power(self, value):
 
         self.__validate_power(value)
 
@@ -551,45 +502,45 @@ class Palazzetti(object):
         self.data["powr"] = value
         self.response_json.update({"POWR": value})
 
-    async def async_set_fan_auto_mode(self, fan=1):
+    async def set_fan_auto_mode(self, fan=1):
 
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_fan_high_mode(self, fan=1):
+    async def set_fan_high_mode(self, fan=1):
 
         value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_fan(self, fan, value):
+    async def set_fan(self, fan, value):
 
         self.__validate_fan(fan, value)
 
         command = self.__build_fan_command(fan, value)
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_light(self, value):
+    async def set_light(self, value):
         if (value == None) or (type(value) is not bool):
             raise InvalidLightError
 
         command = f"SET LGHT {str(1 if value == True else 0)}"
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_door(self, value):
+    async def set_door(self, value):
         if (value == None) or (type(value) is not bool):
             raise InvalidDoorError
 
-        if await self.__async_get_request("GET STAT") == False:
+        if await self.__get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -597,10 +548,10 @@ class Palazzetti(object):
 
         command = f"SET DOOR {str(1 if value == True else 2)}"
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_setpoint(self, value):
+    async def set_setpoint(self, value):
         """Set target temperature"""
 
         self.__validate_setpoint(value)
@@ -610,7 +561,7 @@ class Palazzetti(object):
         # if value == self.response_json["SETP"]:
         #     return
 
-        if await self.__async_get_request(command) == False:
+        if await self.__get_request(command) == False:
             raise SendCommandError
 
         # change state
