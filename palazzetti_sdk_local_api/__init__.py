@@ -544,7 +544,7 @@ class Palazzetti(object):
 
         command = f"SET POWR {str(value)}"
 
-        if self.__request_send(command) == False:
+        if await self.__async_get_request(command) == False:
             raise SendCommandError
 
         # change state
