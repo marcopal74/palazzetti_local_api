@@ -196,45 +196,6 @@ class Palazzetti(object):
             253: "NOPELLET ALARM",
         }
 
-    # TODO: Rename to get_static_data
-    async def get_stdt(self):
-        """Get counters"""
-        await self.__get_request("GET STDT")
-
-    # TODO: Rename to get_alls
-    async def get_alls(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET ALLS")
-
-    # TODO: Remove async_ from name
-    async def get_label(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET LABL")
-
-    # TODO: Remove async_ from name
-    async def get_status(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET STAT")
-
-    # TODO: Remove async_ from name
-    async def get_fan_data(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET FAND")
-
-    async def get_power(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET POWR")
-
-    # TODO: Remove async_ from name
-    async def get_temperatures(self):
-        """Get All data or almost ;)"""
-        await self.__get_request("GET TMPS")
-
-    # TODO: Rename to get_counters
-    async def get_cntr(self):
-        """Get counters"""
-        await self.__get_request("GET CNTR")
-
     async def __get_request(self, message):
         """ request the stove """
         _response_json = None
@@ -268,7 +229,6 @@ class Palazzetti(object):
         self.data["state"] = self.state
         self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
-        self.__config_parse()
 
         if message == "GET ALLS":
             self.data["status"] = self.code_status.get(
@@ -278,68 +238,43 @@ class Palazzetti(object):
         elif message == "GET STDT":
             self.response_json_stdt = _response
 
-    # send request to stove for set commands
-    # why not async?
-    def __request_send(self, message):
-        """ request the stove """
-        _response_json = None
-
-        # check if op is defined or stop here
-        if message is None:
-            return False
-
-        _LOGGER.debug("request stove " + message)
-        # response = False
-
-        retry = 0
-        success = False
-
-        _response = False
-        _response_json = None
-        # error returned by Cbox
-        while not success:
-            # let's go baby
-            # api_discovery=PalComm()
-            # _response = await api_discovery.getHTTP(self.ip, message)
-            _response = self.palsocket.getHTTP(self.ip, message)
-
-            # cbox return error
-            if not _response:
-                # print("palazzetti.stove - com error")
-                self.state = "com error"
-                self.data["state"] = self.state
-                self.response_json.update({"icon": "mdi:link-off"})
-                _LOGGER.error(
-                    "Error returned by CBox - retry in 2 seconds (" + message + ")"
-                )
-                time.sleep(2)
-                retry = retry + 1
-
-                if retry == 3:
-                    _LOGGER.error(
-                        "Error returned by CBox - stop retry after 3 attempt ("
-                        + message
-                        + ")"
-                    )
-                    break
-
-            success = True
-
-        # merge the result with the exixting responnse_json
-        if self.response_json != None:
-            response_merged = self.response_json.copy()
-            response_merged.update(_response)
-            self.response_json = response_merged
-        else:
-            self.response_json = _response
-
-        self.state = "online"
-        self.data["state"] = self.state
-        self.response_json.update({"icon": "mdi:link"})
-        self.data["ip"] = self.ip
         self.__config_parse()
-
         return _response
+
+    # TODO: Rename to get_static_data
+    async def get_stdt(self):
+        """Get counters"""
+        await self.__get_request("GET STDT")
+
+    async def get_alls(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET ALLS")
+
+    async def get_label(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET LABL")
+
+    async def get_status(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET STAT")
+
+    async def get_fan_data(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET FAND")
+
+    async def get_power(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET POWR")
+
+    # TODO: Remove async_ from name
+    async def get_temperatures(self):
+        """Get All data or almost ;)"""
+        await self.__get_request("GET TMPS")
+
+    # TODO: Rename to get_counters
+    async def get_cntr(self):
+        """Get counters"""
+        await self.__get_request("GET CNTR")
 
     def __validate_power(self, value):
         _power = None
@@ -495,7 +430,7 @@ class Palazzetti(object):
 
         command = f"SET POWR {str(value)}"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
         # change state
@@ -570,7 +505,7 @@ class Palazzetti(object):
 
     def power_on(self):
 
-        if self.__request_send("GET STAT") == False:
+        if self.__get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -584,12 +519,12 @@ class Palazzetti(object):
 
         command = "CMD ON"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     def power_off(self):
 
-        if self.__request_send("GET STAT") == False:
+        if self.__get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -603,7 +538,7 @@ class Palazzetti(object):
 
         command = "CMD OFF"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     # retuens list of states: title, state, ip
