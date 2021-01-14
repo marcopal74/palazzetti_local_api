@@ -344,7 +344,7 @@ class Palazzetti(object):
 
         #_LOGGER.debug("Executing command: {message}")
         _response = await self.palsocket.async_callUDP(self.ip, message)
-        print(_response)
+        #print(_response)
         #one single retry
         if _response is None:
             #print("retry")

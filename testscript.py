@@ -184,5 +184,26 @@ def main7():
     print(f"From async_UDP_get_alls {is_IP_OK}")
     print(api.get_data_json())
 
+def main_directUDP():
+    api_discovery=PalComm()
+    #api_discovery=PalDiscovery()
+    loop = asyncio.get_event_loop()
+
+    print("Chiamata UDP diretta:")
+    use_ip = "192.168.1.130"
+    #api=Palazzetti(use_ip)
+
+    #is_IP_OK=loop.run_until_complete(api_discovery.async_getHTTP(use_ip, "GET STDT"))
+    is_IP_OK=loop.run_until_complete(api_discovery.async_callUDP(use_ip, b"plzbridge?GET ALLS"))
+    #is_IP_OK=loop.run_until_complete(api.async_UDP_get_alls())
+    #if is_IP_OK is None:
+        #print("Retry UDP")
+        #is_IP_OK=loop.run_until_complete(api.async_UDP_get_alls())
+        #is_IP_OK=loop.run_until_complete(api_discovery.async_callUDP(use_ip, b"plzbridge?GET ALLS"))
+    #is_IP_OK=loop.run_until_complete(api_discovery.checkIP_UDP(use_ip))
+    print(f"From async_UDP_get_alls {is_IP_OK}")
+    #print(api.get_data_json())
+
 if __name__ == "__main__":
-    main7()
+    #main_findip()
+    main_directUDP()
