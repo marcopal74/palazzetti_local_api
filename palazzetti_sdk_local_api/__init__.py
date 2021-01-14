@@ -24,7 +24,7 @@ class PalComm(object):
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
         # Enable broadcasting mode
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        #server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         server.settimeout(DISCOVERY_TIMEOUT)
         server.sendto(message, (host, UDP_PORT))
@@ -255,6 +255,10 @@ class Palazzetti(object):
         """Get All data or almost ;)"""
         await self.__async_get_request("GET ALLS")
 
+    async def async_UDP_get_alls(self):
+        """Get All data or almost ;)"""
+        await self.__async_UDP_get_request(b"plzbridge?GET ALLZ")
+
     # TODO: Remove async_ from name
     async def async_get_label(self):
         """Get All data or almost ;)"""
@@ -302,7 +306,10 @@ class Palazzetti(object):
         if not _response:
             self.state = "offline"
             self.data["state"] = self.state
-            self.response_json.update({"icon": "mdi:link-off"})
+            if self.response_json != None:
+                self.response_json.update({"icon": "mdi:link-off"})
+            else:
+                self.response_json=json.loads('{"icon": "mdi:link-off"}')
             return False
 
         # merge the result with the exixting responnse_json
@@ -327,6 +334,53 @@ class Palazzetti(object):
         elif message == "GET STDT":
             self.response_json_stdt = _response
 
+    async def __async_UDP_get_request(self, message):
+        """ request the stove """
+        _response_json = None
+
+        # check if op is defined or stop here
+        if message is None:
+            return False
+
+        #_LOGGER.debug("Executing command: {message}")
+        _response = await self.palsocket.async_callUDP(self.ip, message)
+        print(_response)
+        #one single retry
+        if _response is None:
+            #print("retry")
+            _response = await self.palsocket.async_callUDP(self.ip, message)
+
+        if not _response:
+            #print("enter here")
+            self.state = "offline"
+            self.data["state"] = self.state
+            if self.response_json != None:
+                self.response_json.update({"icon": "mdi:link-off"})
+            else:
+                self.response_json=json.loads('{"icon": "mdi:link-off"}')
+            return False
+
+        # merge the result with the exixting responnse_json
+        if self.response_json != None:
+            response_merged = self.response_json.copy()
+            response_merged.update(_response)
+            self.response_json = response_merged
+        else:
+            self.response_json = _response
+
+        self.state = "online"
+        self.data["state"] = self.state
+        self.response_json.update({"icon": "mdi:link"})
+        self.data["ip"] = self.ip
+        self.__config_parse()
+
+        if message == "GET ALLS":
+            self.data["status"] = self.code_status.get(
+                self.response_json["STATUS"], self.response_json["STATUS"]
+            )
+            self.response_json_alls = _response
+        elif message == "GET STDT":
+            self.response_json_stdt = _response
     # send request to stove for set commands
     # why not async?
     def __request_send(self, message):
@@ -357,10 +411,16 @@ class Palazzetti(object):
                 # print("palazzetti.stove - com error")
                 self.state = "com error"
                 self.data["state"] = self.state
-                self.response_json.update({"icon": "mdi:link-off"})
+                
+                if self.response_json != None:
+                    self.response_json.update({"icon": "mdi:link-off"})
+                else:
+                    self.response_json=json.loads('{"icon": "mdi:link-off"}')
+
                 _LOGGER.error(
                     "Error returned by CBox - retry in 2 seconds (" + message + ")"
                 )
+                
                 time.sleep(2)
                 retry = retry + 1
 

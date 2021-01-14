@@ -4,7 +4,7 @@ from palazzetti_sdk_local_api import Palazzetti, PalDiscovery, PalComm
 
 _LOGGER = logging.getLogger(__name__)
 
-TEST_IP = "192.168.1.130"
+TEST_IP = "192.168.1.133"
 
 def main_findip():
     api_discovery=PalDiscovery()
@@ -159,21 +159,30 @@ def main6():
     loop = asyncio.get_event_loop()
 
     print("Chiamata diretta:")
-    use_ip = "192.168.1.130"
+    use_ip = "192.168.1.133"
     #is_IP_OK=loop.run_until_complete(api_discovery.async_callHTTP(use_ip, b"plzbridge?"))
     is_IP_OK=loop.run_until_complete(api_discovery.checkIP_UDP(use_ip))
     print(f"From checkIP_UDP {is_IP_OK}")
 
 def main7():
-    api_discovery=PalComm()
+    #api_discovery=PalComm()
     #api_discovery=PalDiscovery()
     loop = asyncio.get_event_loop()
 
     print("Chiamata diretta:")
-    use_ip = "192.168.1.121"
-    is_IP_OK=loop.run_until_complete(api_discovery.async_getHTTP(use_ip, "GET STDT"))
+    use_ip = "192.168.1.133"
+    api=Palazzetti(use_ip)
+
+    #is_IP_OK=loop.run_until_complete(api_discovery.async_getHTTP(use_ip, "GET STDT"))
+    #is_IP_OK=loop.run_until_complete(api_discovery.async_callUDP(use_ip, b"plzbridge?GET ALLS"))
+    is_IP_OK=loop.run_until_complete(api.async_UDP_get_alls())
+    #if is_IP_OK is None:
+        #print("Retry UDP")
+        #is_IP_OK=loop.run_until_complete(api.async_UDP_get_alls())
+        #is_IP_OK=loop.run_until_complete(api_discovery.async_callUDP(use_ip, b"plzbridge?GET ALLS"))
     #is_IP_OK=loop.run_until_complete(api_discovery.checkIP_UDP(use_ip))
-    print(f"From checkIP_HTTP {is_IP_OK}")
+    print(f"From async_UDP_get_alls {is_IP_OK}")
+    print(api.get_data_json())
 
 if __name__ == "__main__":
-    main_findip()
+    main7()
