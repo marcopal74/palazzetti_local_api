@@ -257,7 +257,7 @@ class Palazzetti(object):
 
     async def async_UDP_get_alls(self):
         """Get All data or almost ;)"""
-        await self.__async_UDP_get_request(b"plzbridge?GET ALLZ")
+        await self.__async_UDP_get_request(b"plzbridge?GET ALLS")
 
     # TODO: Remove async_ from name
     async def async_get_label(self):
