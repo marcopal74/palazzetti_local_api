@@ -2,7 +2,6 @@ import json
 import logging
 import requests
 import aiohttp
-import asyncio
 import socket
 import time
 
@@ -333,7 +332,8 @@ class Palazzetti(object):
             self.response_json_alls = _response
         elif message == "GET STDT":
             self.response_json_stdt = _response
-
+    
+    #only works with GET ALLS
     async def __async_UDP_get_request(self, message):
         """ request the stove """
         _response_json = None
