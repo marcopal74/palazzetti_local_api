@@ -374,13 +374,12 @@ class Palazzetti(object):
         self.data["ip"] = self.ip
         self.__config_parse()
 
-        if message == "GET ALLS":
+        if message == b"plzbridge?GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
             self.response_json_alls = _response
-        elif message == "GET STDT":
-            self.response_json_stdt = _response
+
     # send request to stove for set commands
     # why not async?
     def __request_send(self, message):
