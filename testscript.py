@@ -12,7 +12,8 @@ def main_findip():
 
     print("Chiamata diretta:")
     found_ips=loop.run_until_complete(api_discovery.discovery_UDP())
-    print(found_ips)
+    found_ips = list(dict.fromkeys(found_ips))
+    #print(found_ips)
 
     if not found_ips:
         print("No ConnBox found")
@@ -205,5 +206,5 @@ def main_directUDP():
     #print(api.get_data_json())
 
 if __name__ == "__main__":
-    #main_findip()
-    main_directUDP()
+    main_findip()
+    #main_directUDP()

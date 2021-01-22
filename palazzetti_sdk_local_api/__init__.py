@@ -23,7 +23,7 @@ class PalComm(object):
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
         # Enable broadcasting mode
-        #server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         server.settimeout(DISCOVERY_TIMEOUT)
         server.sendto(message, (host, UDP_PORT))
@@ -198,6 +198,9 @@ class PalDiscovery(object):
         return True
 
 
+# this class represent the product, to get all the needed informations
+# to handle it data_config_json is the minimum required also
+# response_json is needed for more detailed info
 class Palazzetti(object):
     """Palazzetti HTTP class"""
 
@@ -210,15 +213,15 @@ class Palazzetti(object):
     data_config_json = None
     data_config_object = None
 
-    def __init__(self, host, title="uniqueID"):
+    def __init__(self, host, product_id="uniqueID"):
+        _LOGGER.debug("Init of class palazzetti")
+
         self.ip = host
         self.palsocket = PalComm()
         self.state = "online"
-        self.unique_id = title
+        self.unique_id = product_id
         self.data = {}
         self.data["title"] = self.unique_id
-
-        _LOGGER.debug("Init of class palazzetti")
 
         self.code_status = {
             0: "OFF",
@@ -308,7 +311,7 @@ class Palazzetti(object):
             if self.response_json != None:
                 self.response_json.update({"icon": "mdi:link-off"})
             else:
-                self.response_json=json.loads('{"icon": "mdi:link-off"}')
+                self.response_json = json.loads('{"icon": "mdi:link-off"}')
             return False
 
         # merge the result with the exixting responnse_json
@@ -332,8 +335,8 @@ class Palazzetti(object):
             self.response_json_alls = _response
         elif message == "GET STDT":
             self.response_json_stdt = _response
-    
-    #only works with GET ALLS
+
+    # only works with GET ALLS
     async def __async_UDP_get_request(self, message):
         """ request the stove """
         _response_json = None
@@ -342,22 +345,22 @@ class Palazzetti(object):
         if message is None:
             return False
 
-        #_LOGGER.debug("Executing command: {message}")
+        # _LOGGER.debug("Executing command: {message}")
         _response = await self.palsocket.async_callUDP(self.ip, message)
-        #print(_response)
-        #one single retry
+        # print(_response)
+        # one single retry
         if _response is None:
-            #print("retry")
+            # print("retry")
             _response = await self.palsocket.async_callUDP(self.ip, message)
 
         if not _response:
-            #print("enter here")
+            # print("enter here")
             self.state = "offline"
             self.data["state"] = self.state
             if self.response_json != None:
                 self.response_json.update({"icon": "mdi:link-off"})
             else:
-                self.response_json=json.loads('{"icon": "mdi:link-off"}')
+                self.response_json = json.loads('{"icon": "mdi:link-off"}')
             return False
 
         # merge the result with the exixting responnse_json
@@ -375,6 +378,7 @@ class Palazzetti(object):
         self.__config_parse()
 
         if message == b"plzbridge?GET ALLS":
+            # print("Passa di qua: UDP GET_ALLS")
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
@@ -410,16 +414,16 @@ class Palazzetti(object):
                 # print("palazzetti.stove - com error")
                 self.state = "com error"
                 self.data["state"] = self.state
-                
+
                 if self.response_json != None:
                     self.response_json.update({"icon": "mdi:link-off"})
                 else:
-                    self.response_json=json.loads('{"icon": "mdi:link-off"}')
+                    self.response_json = json.loads('{"icon": "mdi:link-off"}')
 
                 _LOGGER.error(
                     "Error returned by CBox - retry in 2 seconds (" + message + ")"
                 )
-                
+
                 time.sleep(2)
                 retry = retry + 1
 
@@ -542,28 +546,6 @@ class Palazzetti(object):
         asset_capabilities = asset_parser.parsed_data
         self.data_config_object = asset_capabilities
 
-    def get_setpoint(self):
-        """Get target temperature for climate"""
-        if self.response_json == None or self.response_json["SETP"] == None:
-            return
-
-        return self.response_json["SETP"]
-
-    # get generic KEY in the datas
-    # if key doesn't exist returns None
-    # TODO: Is it possible to remove this function?
-    # BYNOW does not generate risks
-    def get_key(self, mykey="STATUS"):
-        """Get target temperature for climate"""
-        if (
-            self.response_json == None
-            or (mykey in self.response_json) == False
-            or self.response_json[mykey] == None
-        ):
-            return
-
-        return self.response_json[mykey]
-
     # TODO: Is it possible to remove this function?
     # BYNOW it has been limited to setpoint only
     async def set_parameters(self, datas):
@@ -587,16 +569,6 @@ class Palazzetti(object):
         self.data["label"] = value
         self.response_json.update({"LABEL": value})
 
-    async def async_set_fan_silent_mode(self):
-
-        command = self.__build_fan_command(1, 0)
-
-        if self.data_config_object.flag_has_fan_zero_speed_fan == True:
-            command = "SET SLNT 1"
-
-        if await self.__async_get_request(command) == False:
-            raise SendCommandError
-
     async def async_set_power(self, value):
 
         self.__validate_power(value)
@@ -609,6 +581,16 @@ class Palazzetti(object):
         # change state
         self.data["powr"] = value
         self.response_json.update({"POWR": value})
+
+    async def async_set_fan_silent_mode(self):
+
+        command = self.__build_fan_command(1, 0)
+
+        if self.data_config_object.flag_has_fan_zero_speed_fan == True:
+            command = "SET SLNT 1"
+
+        if await self.__async_get_request(command) == False:
+            raise SendCommandError
 
     async def async_set_fan_auto_mode(self, fan=1):
 
@@ -715,21 +697,49 @@ class Palazzetti(object):
             raise SendCommandError
 
     # retuens list of states: title, state, ip
-    def get_data_states(self):
+    def get_data_states(self) -> list:
         return self.data
 
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
-    def get_data_json(self):
+    def get_data_json(self) -> json:
         return self.response_json
 
     # returns JSON with configuration keys
-    def get_data_config_json(self):
+    def get_data_config_json(self) -> json:
         return vars(self.data_config_object)
 
     # returns JSON with the DATA key content of the last GET ALLS
-    def get_data_alls_json(self):
+    def get_data_alls_json(self) -> json:
         return self.response_json_alls
 
     # returns JSON with the DATA key content of the last GET STDT
-    def get_data_stdt_json(self):
+    def get_data_stdt_json(self) -> json:
         return self.response_json_stdt
+
+    # returns int with setpoint
+    def get_setpoint(self) -> int:
+        """Get target temperature for climate"""
+        if self.response_json == None or self.response_json["SETP"] == None:
+            return
+
+        return int(self.response_json["SETP"])
+
+    # get generic KEY in the datas
+    # if key doesn't exist returns None
+    # TODO: Is it possible to remove this function?
+    # BYNOW does not generate risks
+    def get_key(self, mykey="STATUS"):
+        """Get target temperature for climate"""
+        if (
+            self.response_json == None
+            or (mykey in self.response_json) == False
+            or self.response_json[mykey] == None
+        ):
+            return
+
+        return self.response_json[mykey]
+
+    @property
+    def product_id(self) -> str:
+        """Return unique ID of product"""
+        return self.unique_id
