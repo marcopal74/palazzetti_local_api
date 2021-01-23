@@ -483,7 +483,7 @@ class Palazzetti(object):
         if _fan == None:
             raise InvalidFanError
 
-        self.async_get_alls()
+        # self.async_get_alls()
 
         _fan_limits = {}
 
@@ -500,7 +500,9 @@ class Palazzetti(object):
             _fan_limits["min"] = None
             _fan_limits["max"] = None
 
-        if (_fan_limits.get("min", None) == None) or (_fan_limits.get("max", None)):
+        if (_fan_limits.get("min", None) == None) or (
+            _fan_limits.get("max", None) == None
+        ):
             raise InvalidFanLimitsError
 
         if _fan < _fan_limits.get("min") or _fan > _fan_limits.get("max"):
@@ -534,7 +536,7 @@ class Palazzetti(object):
 
         _command = {"FAN_1": "SET RFAN", "FAN_2": "SET FN3L", "FAN_3": "SET FN4L"}
 
-        command = f'{_command.get("FAN_" + "" + fan, None)} {value}'
+        command = f'{_command.get("FAN_" + "" + str(fan), None)} {value}'
 
         if command is None:
             raise InvalidFanOutOfRange
@@ -708,6 +710,10 @@ class Palazzetti(object):
     def get_data_config_json(self) -> json:
         return vars(self.data_config_object)
 
+    # returns OBJECT with configuration keys
+    def get_data_config_object(self):
+        return self.data_config_object
+
     # returns JSON with the DATA key content of the last GET ALLS
     def get_data_alls_json(self) -> json:
         return self.response_json_alls
@@ -743,3 +749,8 @@ class Palazzetti(object):
     def product_id(self) -> str:
         """Return unique ID of product"""
         return self.unique_id
+
+    @property
+    def online(self) -> bool:
+        """Return True if product is online"""
+        return self.state == "online"
