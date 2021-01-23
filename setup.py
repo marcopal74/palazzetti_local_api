@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="palazzetti_sdk_local_api",
-    version="1.0.4",
+    version="1.0.5",
     author="Marco Palazzetti",
     author_email="marco.palazzetti@me.com",
     description="IoT Device Communication Library",
