@@ -594,12 +594,30 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
+    def set_fan_silent_mode(self):
+
+        command = self.__build_fan_command(1, 0)
+
+        if self.data_config_object.flag_has_fan_zero_speed_fan == True:
+            command = "SET SLNT 1"
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
     async def async_set_fan_auto_mode(self, fan=1):
 
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
 
         if await self.__async_get_request(command) == False:
+            raise SendCommandError
+
+    def set_fan_auto_mode(self, fan=1):
+
+        value = "7"  # Auto Mode
+        command = self.__build_fan_command(fan, value)
+
+        if self.__request_send(command) == False:
             raise SendCommandError
 
     async def async_set_fan_high_mode(self, fan=1):
@@ -610,6 +628,14 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
+    def set_fan_high_mode(self, fan=1):
+
+        value = "6"  # High Mode
+        command = self.__build_fan_command(fan, value)
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
     async def async_set_fan(self, fan, value):
 
         self.__validate_fan(fan, value)
@@ -617,6 +643,15 @@ class Palazzetti(object):
         command = self.__build_fan_command(fan, value)
 
         if await self.__async_get_request(command) == False:
+            raise SendCommandError
+
+    def set_fan(self, fan, value):
+
+        self.__validate_fan(fan, value)
+
+        command = self.__build_fan_command(fan, value)
+
+        if self.__request_send(command) == False:
             raise SendCommandError
 
     async def async_set_light(self, value):
