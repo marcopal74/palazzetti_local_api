@@ -663,6 +663,15 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
+    def set_light(self, value):
+        if (value == None) or (type(value) is not bool):
+            raise InvalidLightError
+
+        command = f"SET LGHT {str(1 if value == True else 0)}"
+
+        if self.__request_send(command) == False:
+            raise SendCommandError
+
     async def async_set_door(self, value):
         if (value == None) or (type(value) is not bool):
             raise InvalidDoorError
