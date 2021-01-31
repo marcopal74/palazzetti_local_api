@@ -49,68 +49,6 @@ HUB_KEYS = [
     "WCH",
 ]
 
-PRODUCT_KEYS = [
-    "LSTATUS",
-    "F2LF",
-    "PUMP",
-    "PWR",
-    "CHRSTATUS",
-    "T5",
-    "T4",
-    "T3",
-    "T2",
-    "T1",
-    "F1V",
-    "FANLMINMAX",
-    "FDR",
-    "IN",
-    "OUT",
-    "F2V",
-    "MOD",
-    "DPT",
-    "APLWDAY",
-    "FWDATE",
-    "STATUS",
-    "F2L",
-    "SETP",
-    "DP",
-    "F1RPM",
-    "VER",
-    "MBTYPE",
-    "PSENSLTSH",
-    "STOVETYPE",
-    "NOMINALPWR",
-    "AUTONOMYTYPE",
-    "SPLMAX",
-    "CHRONOTYPE",
-    "PELLETTYPE",
-    "FAN2MODE",
-    "FAN2TYPE",
-    "SPLMIN",
-    "PSENSLMIN",
-    "PSENSLMAX",
-    "LABEL",
-    "PSENSTYPE",
-    "CONFIG",
-    "UICONFIG",
-    "MAINTPROBE",
-    "FLUID",
-    "SN",
-    "IGNERRORS",
-    "POWERTIME",
-    "SERVICETIME",
-    "OVERTMPERRORS",
-    "HEATTIME",
-    "ONTIME",
-    "IGN",
-    "DOORMOTION",
-    "MOT1COUNT",
-    "LIGHTCONT",
-    "DOORMOTOR",
-    "DOOR",
-    "LGHT",
-]
-
 # to be completed!!
 class PalComm(object):
     async def async_callUDP(self, host, message):
@@ -851,21 +789,24 @@ class Palazzetti(object):
 
     # retuens JSON specific for product with all keys of GET ALLS, GET STDT and GET CNTR
     def get_prod_data_json(self) -> json:
-        newList = {
-            k: self.response_json[k] for k in PRODUCT_KEYS if k in self.response_json
-        }
-        newList.update(
+        newlist = {}
+        for kv in self.response_json.items():
+            if kv[0] not in HUB_KEYS:
+                newlist[kv[0]] = kv[1]
+
+        newlist.update(
             {
                 "STATE": self.code_status.get(
                     self.response_json["STATUS"], self.response_json["STATUS"]
                 )
             }
         )
-        # return json.dumps(newList)
-        return newList
+        return newlist
 
     # returns JSON with configuration keys
     def get_data_config_json(self) -> json:
+        if not self.data_config_object:
+            return
         return vars(self.data_config_object)
 
     # returns OBJECT with configuration keys
