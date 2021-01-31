@@ -15,6 +15,101 @@ DISCOVERY_TIMEOUT = 5
 DISCOVERY_MESSAGE = b"plzbridge?"
 BUFFER_SIZE = 2048
 HTTP_TIMEOUT = 15
+HUB_KEYS = [
+    "APLTS",
+    "MAC",
+    "GWDEVICE",
+    "GATEWAY",
+    "WMAC",
+    "plzbridge",
+    "WMODE",
+    "EGW",
+    "ECBL",
+    "WADR",
+    "CLOUD_ENABLED",
+    "EPR",
+    "LABEL",
+    "EMSK",
+    "WGW",
+    "ICONN",
+    "EBCST",
+    "WPR",
+    "WSSID",
+    "WENC",
+    "CBTYPE",
+    "EADR",
+    "WPWR",
+    "WMSK",
+    "EMAC",
+    "DNS",
+    "APLCONN",
+    "sendmsg",
+    "SYSTEM",
+    "WBCST",
+    "WCH",
+]
+
+PRODUCT_KEYS = [
+    "LSTATUS",
+    "F2LF",
+    "PUMP",
+    "PWR",
+    "CHRSTATUS",
+    "T5",
+    "T4",
+    "T3",
+    "T2",
+    "T1",
+    "F1V",
+    "FANLMINMAX",
+    "FDR",
+    "IN",
+    "OUT",
+    "F2V",
+    "MOD",
+    "DPT",
+    "APLWDAY",
+    "FWDATE",
+    "STATUS",
+    "F2L",
+    "SETP",
+    "DP",
+    "F1RPM",
+    "VER",
+    "MBTYPE",
+    "PSENSLTSH",
+    "STOVETYPE",
+    "NOMINALPWR",
+    "AUTONOMYTYPE",
+    "SPLMAX",
+    "CHRONOTYPE",
+    "PELLETTYPE",
+    "FAN2MODE",
+    "FAN2TYPE",
+    "SPLMIN",
+    "PSENSLMIN",
+    "PSENSLMAX",
+    "LABEL",
+    "PSENSTYPE",
+    "CONFIG",
+    "UICONFIG",
+    "MAINTPROBE",
+    "FLUID",
+    "SN",
+    "IGNERRORS",
+    "POWERTIME",
+    "SERVICETIME",
+    "OVERTMPERRORS",
+    "HEATTIME",
+    "ONTIME",
+    "IGN",
+    "DOORMOTION",
+    "MOT1COUNT",
+    "LIGHTCONT",
+    "DOORMOTOR",
+    "DOOR",
+    "LGHT",
+]
 
 # to be completed!!
 class PalComm(object):
@@ -299,10 +394,6 @@ class Palazzetti(object):
             return False
 
         _LOGGER.debug("Executing command: {message}")
-        # response = False
-
-        # api_discovery=PalComm()
-        # _response = await api_discovery.async_getHTTP(self.ip, message)
         _response = await self.palsocket.async_getHTTP(self.ip, message)
 
         if not _response:
@@ -384,9 +475,8 @@ class Palazzetti(object):
             )
             self.response_json_alls = _response
 
-    # send request to stove for set commands
-    # why not async?
-    def __request_send(self, message):
+    # send sync request to stove for set commands
+    def __get_request(self, message):
         """ request the stove """
         _response_json = None
 
@@ -601,7 +691,7 @@ class Palazzetti(object):
         if self.data_config_object.flag_has_fan_zero_speed_fan == True:
             command = "SET SLNT 1"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     async def async_set_fan_auto_mode(self, fan=1):
@@ -617,7 +707,7 @@ class Palazzetti(object):
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     async def async_set_fan_high_mode(self, fan=1):
@@ -633,7 +723,7 @@ class Palazzetti(object):
         value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     async def async_set_fan(self, fan, value):
@@ -651,7 +741,7 @@ class Palazzetti(object):
 
         command = self.__build_fan_command(fan, value)
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     async def async_set_light(self, value):
@@ -669,7 +759,7 @@ class Palazzetti(object):
 
         command = f"SET LGHT {str(1 if value == True else 0)}"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     async def async_set_door(self, value):
@@ -706,7 +796,7 @@ class Palazzetti(object):
 
     def power_on(self):
 
-        if self.__request_send("GET STAT") == False:
+        if self.__get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -720,12 +810,12 @@ class Palazzetti(object):
 
         command = "CMD ON"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     def power_off(self):
 
-        if self.__request_send("GET STAT") == False:
+        if self.__get_request("GET STAT") == False:
             raise SendCommandError
 
         if self.data_config_object.flag_error_status == True:
@@ -739,7 +829,7 @@ class Palazzetti(object):
 
         command = "CMD OFF"
 
-        if self.__request_send(command) == False:
+        if self.__get_request(command) == False:
             raise SendCommandError
 
     # retuens list of states: title, state, ip
@@ -749,6 +839,30 @@ class Palazzetti(object):
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
     def get_data_json(self) -> json:
         return self.response_json
+
+    # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
+    def get_cb_data_json(self) -> json:
+        newList = {
+            k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
+        }
+        newList.update({"IP": self.ip})
+        # return json.dumps(newList)
+        return newList
+
+    # retuens JSON specific for product with all keys of GET ALLS, GET STDT and GET CNTR
+    def get_prod_data_json(self) -> json:
+        newList = {
+            k: self.response_json[k] for k in PRODUCT_KEYS if k in self.response_json
+        }
+        newList.update(
+            {
+                "STATE": self.code_status.get(
+                    self.response_json["STATUS"], self.response_json["STATUS"]
+                )
+            }
+        )
+        # return json.dumps(newList)
+        return newList
 
     # returns JSON with configuration keys
     def get_data_config_json(self) -> json:
@@ -793,6 +907,16 @@ class Palazzetti(object):
     def product_id(self) -> str:
         """Return unique ID of product"""
         return self.unique_id
+
+    @property
+    def hub_id(self) -> str:
+        """Return unique ID of the connectivity hub: ConnBox or BioCC"""
+        return self.response_json["MAC"].replace(":", "_")
+
+    @property
+    def hub_isbiocc(self) -> bool:
+        """Return True if hub is BioCC else is ConnBox"""
+        return self.response_json["CBTYPE"] == "ET4W"
 
     @property
     def online(self) -> bool:
