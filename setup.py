@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="palazzetti_sdk_local_api",
-    version="1.0.8",
+    version="1.0.9",
     author="Marco Palazzetti",
     author_email="marco.palazzetti@me.com",
     description="IoT Device Communication Library",
@@ -14,8 +14,8 @@ setuptools.setup(
     url="https://github.com/marcopal74/palazzetti_local_api",
     packages=setuptools.find_packages(),
     install_requires=[
-        'palazzetti_sdk_asset_parser==1.0.7',
-        'aiohttp==3.7.3'
+        'palazzetti_sdk_asset_parser>=1.0.8',
+        'aiohttp>=3.7.1'
     ],
     python_requires='>=3.6',
     include_package_data=True

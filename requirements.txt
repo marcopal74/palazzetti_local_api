@@ -1,2 +1,2 @@
-palazzetti_sdk_asset_parser==1.0.7
-aiohttp==3.7.3
+palazzetti_sdk_asset_parser>=1.0.8
+aiohttp>=3.7.1
