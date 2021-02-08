@@ -255,6 +255,7 @@ class Palazzetti(object):
         self.unique_id = product_id
         self.data = {}
         self.data["title"] = self.unique_id
+        self._callbacks = set()
 
         self.code_status = {
             0: "OFF",
@@ -356,12 +357,14 @@ class Palazzetti(object):
         self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
         self.__config_parse()
+        await self.publish_updates()
 
         if message == "GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
             self.response_json_alls = _response
+
         elif message == "GET STDT":
             self.response_json_stdt = _response
 
@@ -404,7 +407,6 @@ class Palazzetti(object):
         self.data["state"] = self.state
         self.response_json.update({"icon": "mdi:link"})
         self.data["ip"] = self.ip
-        self.__config_parse()
 
         if message == b"plzbridge?GET ALLS":
             # print("Passa di qua: UDP GET_ALLS")
@@ -412,6 +414,8 @@ class Palazzetti(object):
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
             self.response_json_alls = _response
+            self.__config_parse()
+            await self.publish_updates()
 
     # send sync request to stove for set commands
     def __get_request(self, message):
@@ -610,7 +614,8 @@ class Palazzetti(object):
 
         # change state
         self.data["powr"] = value
-        self.response_json.update({"POWR": value})
+        # self.response_json.update({"POWR": value})
+        # await self.publish_updates()
 
     async def async_set_fan_silent_mode(self):
 
@@ -730,7 +735,7 @@ class Palazzetti(object):
 
         # change state
         self.data["setp"] = value
-        self.response_json.update({"SETP": value})
+        # self.response_json.update({"SETP": value})
 
     def power_on(self):
 
@@ -775,7 +780,7 @@ class Palazzetti(object):
         return self.data
 
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
-    def get_data_json(self) -> json:
+    def get_data_json(self) -> dict:
         return self.response_json
 
     # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
@@ -804,7 +809,7 @@ class Palazzetti(object):
         return newlist
 
     # returns JSON with configuration keys
-    def get_data_config_json(self) -> json:
+    def get_data_config_json(self) -> dict:
         if not self.data_config_object:
             return
         return vars(self.data_config_object)
@@ -863,3 +868,16 @@ class Palazzetti(object):
     def online(self) -> bool:
         """Return True if product is online"""
         return self.state == "online"
+
+    def register_callback(self, callback):
+        """Register callback, called when Roller changes state."""
+        self._callbacks.add(callback)
+
+    def remove_callback(self, callback):
+        """Remove previously registered callback."""
+        self._callbacks.discard(callback)
+
+    async def publish_updates(self):
+        """Schedule call all registered callbacks."""
+        for callback in self._callbacks:
+            callback()
