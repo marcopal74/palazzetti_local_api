@@ -191,7 +191,7 @@ class PalDiscovery(object):
                 myips = list(dict.fromkeys(myips))
                 return myips
 
-    async def checkIP_UDP(self, testIP):
+    async def checkIP_UDP(self, testIP, response=False):
         """verify the IP is a Connection Box using UDP"""
 
         api_discovery = PalComm()
@@ -202,9 +202,12 @@ class PalDiscovery(object):
         if not _response:
             return False
 
+        if response:
+            return _response
+
         return True
 
-    async def checkIP_HTTP(self, testIP):
+    async def checkIP_HTTP(self, testIP, response=False):
         """verify the IP is a Connection Box using HTTP call with command GET LABL"""
         api_discovery = PalComm()
         use_ip = testIP
@@ -214,21 +217,184 @@ class PalDiscovery(object):
         if not _response:
             return False
 
+        if response:
+            return _response
+
         return True
 
-    async def checkIP(self, testIP):
-        is_IP_OK = await self.checkIP_UDP(testIP)
+    async def checkIP(self, testIP, response=False):
+        _response = await self.checkIP_UDP(testIP, response)
         # print(f"From checkIP_UDP {is_IP_OK}")
 
-        if not is_IP_OK:
+        if not _response:
             # print("No ConnBox found via UDP, checking via HTTP...")
-            is_IP_OK = await self.checkIP_HTTP(testIP)
+            _response = await self.checkIP_HTTP(testIP, response)
             # print(f"From checkIP_HTTP {is_IP_OK}")
-            if not is_IP_OK:
+            if not _response:
                 # print("No ConnBox found")
                 return False
 
+        if response:
+            return _response
+
         return True
+
+
+# this class represent the Hub gateway, to get all the needed informations
+# to handle it data_config_json is the minimum required also
+# response_json is needed for more detailed info
+class Hub(object):
+    """Hub gateway HTTP class"""
+
+    response_json = None
+
+    def __init__(self, host):
+        _LOGGER.debug("Init of class hub")
+
+        self.ip = host
+        self.palsocket = PalComm()
+        self.paldiscovery = PalDiscovery()
+        self.online = False
+        self.unique_id = "plz_" + str(host).replace(".", "_")
+        self._callbacks = set()
+        self._product = None
+        self._myclimate_1 = None
+        self._myclimate_2 = None
+        self._myclimate_3 = None
+        self._shape = None
+
+    async def async_update(self, discovery=False):
+        _response = await self.paldiscovery.checkIP(self.ip, response=True)
+        if not _response:
+            self.online = False
+            if self.response_json != None:
+                self.response_json.update({"icon": "mdi:link-off"})
+            else:
+                self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            return
+
+        if discovery:
+            self._product = Palazzetti(self.ip)
+            await self._product.async_get_stdt()
+            await self._product.async_get_alls()
+            await self._product.async_get_cntr()
+            # print("Product Loaded")
+
+        # merge the result with the exixting response_json
+        if self.response_json != None:
+            response_merged = self.response_json.copy()
+            response_merged.update(_response)
+            self.response_json = response_merged
+        else:
+            self.response_json = _response
+
+        self.online = True
+        # print(f"Attuale JSON: {self.response_json}")
+        self.response_json.update({"icon": "mdi:link"})
+        await self.publish_updates()
+
+    async def async_get_stdt(self):
+        """Get counters"""
+        await self.__async_get_request("GET STDT")
+
+    async def __async_get_request(self, message):
+        """ request the stove """
+        _response = None
+
+        # check if op is defined or stop here
+        if message is None:
+            return False
+
+        _LOGGER.debug("Executing command: {message}")
+        _response = await self.palsocket.async_getHTTP(self.ip, message)
+
+        if not _response:
+            self.online = False
+            if self.response_json != None:
+                self.response_json.update({"icon": "mdi:link-off"})
+            else:
+                self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            return False
+
+        # merge the result with the exixting responnse_json
+        if self.response_json != None:
+            response_merged = self.response_json.copy()
+            response_merged.update(_response)
+            self.response_json = response_merged
+        else:
+            self.response_json = _response
+
+        self.online = True
+        self.response_json.update({"icon": "mdi:link"})
+        # self.__config_parse()
+        await self.publish_updates()
+
+    @property
+    def hub_online(self) -> bool:
+        """Return unique ID of the gateway hub: ConnBox or BioCC"""
+        return self.online
+
+    @property
+    def hub_id(self) -> str:
+        """Return unique ID of the gateway hub: ConnBox or BioCC"""
+        return self.unique_id
+
+    @property
+    def hub_isbiocc(self) -> bool:
+        """Return True if hub is BioCC else is ConnBox"""
+        if "CBTYPE" not in self.response_json:
+            return
+        return self.response_json["CBTYPE"] == "ET4W"
+
+    @property
+    def product(self):
+        """Return product object connected to the Hub gateway"""
+        return self._product
+
+    @property
+    def myclimate_1(self):
+        """Return myclimate_1 object connected to the Hub gateway"""
+        return self._myclimate_1
+
+    @property
+    def myclimate_2(self):
+        """Return myclimate_2 object connected to the Hub gateway"""
+        return self._myclimate_2
+
+    @property
+    def myclimate_3(self):
+        """Return myclimate_3 object connected to the Hub gateway"""
+        return self._myclimate_3
+
+    @property
+    def shape(self):
+        """Return product object connected to the Hub gateway"""
+        return self._shape
+
+    # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
+    def get_attributes(self):
+        if self.response_json:
+            newList = {
+                k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
+            }
+            newList.update({"IP": self.ip})
+            newList.update({"icon": self.response_json["icon"]})
+            newList_json = json.dumps(newList)
+            return newList
+        return
+
+    def register_callback(self, callback):
+        """Register callback, called when Roller changes state."""
+        self._callbacks.add(callback)
+
+    def remove_callback(self, callback):
+        """Remove previously registered callback."""
+        self._callbacks.discard(callback)
+
+    async def publish_updates(self):
+        """Schedule call all registered callbacks."""
+        for callback in self._callbacks:
+            callback()
 
 
 # this class represent the product, to get all the needed informations
