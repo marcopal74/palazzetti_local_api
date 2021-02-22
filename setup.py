@@ -14,7 +14,7 @@ setuptools.setup(
     url="https://github.com/marcopal74/palazzetti_local_api",
     packages=setuptools.find_packages(),
     install_requires=[
-        'palazzetti_sdk_asset_parser>=1.0.8',
+        'palazzetti_sdk_asset_parser>=1.0.9',
         'aiohttp>=3.7.1'
     ],
     python_requires='>=3.6',

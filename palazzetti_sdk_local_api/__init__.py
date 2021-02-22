@@ -986,13 +986,13 @@ class Palazzetti(object):
         return self.response_json
 
     # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
-    def get_cb_data_json(self) -> json:
-        newList = {
-            k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
-        }
-        newList.update({"IP": self.ip})
-        # return json.dumps(newList)
-        return newList
+    # def get_cb_data_json(self) -> json:
+    #     newList = {
+    #         k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
+    #     }
+    #     newList.update({"IP": self.ip})
+    #     # return json.dumps(newList)
+    #     return newList
 
     # retuens JSON specific for product with all keys of GET ALLS, GET STDT and GET CNTR
     def get_prod_data_json(self) -> json:
@@ -1054,18 +1054,18 @@ class Palazzetti(object):
         """Return unique ID of product"""
         return self.unique_id
 
-    @property
-    def hub_id(self) -> str:
-        """Return unique ID of the connectivity hub: ConnBox or BioCC"""
-        return self.response_json["MAC"].replace(":", "_")
+    # @property
+    # def hub_id(self) -> str:
+    #     """Return unique ID of the connectivity hub: ConnBox or BioCC"""
+    #     return self.response_json["MAC"].replace(":", "_")
 
-    @property
-    def hub_isbiocc(self) -> bool:
-        """Return True if hub is BioCC else is ConnBox"""
-        return (
-            self.response_json["CBTYPE"] == "ET4W"
-            or self.response_json["CBTYPE"] == "VxxET"
-        )
+    # @property
+    # def hub_isbiocc(self) -> bool:
+    #     """Return True if hub is BioCC else is ConnBox"""
+    #     return (
+    #         self.response_json["CBTYPE"] == "ET4W"
+    #         or self.response_json["CBTYPE"] == "VxxET"
+    #     )
 
     @property
     def online(self) -> bool:
