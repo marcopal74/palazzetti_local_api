@@ -146,7 +146,7 @@ class PalComm(object):
             return False
         except requests.exceptions.ConnectTimeout:
             # equivalent of ping
-            _LOGGER.error("Please check parm ip : " + self.ip)
+            _LOGGER.error("Please check parm ip : " + host)
             return False
 
         if response == False:
