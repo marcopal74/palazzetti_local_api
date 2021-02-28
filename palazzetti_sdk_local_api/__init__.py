@@ -270,19 +270,16 @@ class Hub(object):
             self.online = False
             if self._product:
                 await self._product.async_set_offline()
-            if self.response_json != None:
-                self.response_json.update({"icon": "mdi:link-off"})
-            else:
-                self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
             await self.publish_updates()
             return
 
         if discovery:
-            self._product = Palazzetti(self.ip, self.unique_id + "_prd")
+            if not self._product:
+                self._product = Palazzetti(self.ip, self.unique_id + "_prd")
             await self._product.async_get_stdt()
             await self._product.async_get_alls()
             await self._product.async_get_cntr()
-            # print("Product Loaded")
 
         # merge the result with the exixting response_json
         if self.response_json != None:
@@ -294,43 +291,6 @@ class Hub(object):
 
         self.online = True
         self.response_json.update({"icon": "mdi:link"})
-        # print(f"Attuale JSON: {self.response_json}")
-        await self.publish_updates()
-
-    async def async_get_stdt(self):
-        """Get counters"""
-        await self.__async_get_request("GET STDT")
-
-    async def __async_get_request(self, message):
-        """ request the stove """
-        _response = None
-
-        # check if op is defined or stop here
-        if message is None:
-            return False
-
-        _LOGGER.debug("Executing command: {message}")
-        _response = await self.palsocket.async_getHTTP(self.ip, message)
-
-        if not _response:
-            self.online = False
-            if self.response_json != None:
-                self.response_json.update({"icon": "mdi:link-off"})
-            else:
-                self.response_json = json.loads('{"icon": "mdi:link-off"}')
-            return False
-
-        # merge the result with the exixting responnse_json
-        if self.response_json != None:
-            response_merged = self.response_json.copy()
-            response_merged.update(_response)
-            self.response_json = response_merged
-        else:
-            self.response_json = _response
-
-        self.online = True
-        self.response_json.update({"icon": "mdi:link"})
-        # self.__config_parse()
         await self.publish_updates()
 
     @property
@@ -349,10 +309,11 @@ class Hub(object):
         if "CBTYPE" not in self.response_json:
             # if not self.response_json:
             return self._isbiocc
-        return (
+        self._isbiocc = (
             self.response_json["CBTYPE"] == "ET4W"
             or self.response_json["CBTYPE"] == "VxxET"
         )
+        return self._isbiocc
 
     @property
     def hub_name(self) -> str:
@@ -366,7 +327,6 @@ class Hub(object):
     def label(self) -> str:
         """Return LABEL key"""
         if "LABEL" not in self.response_json:
-            # if not self.response_json:
             return
         return self.response_json["LABEL"]
 
@@ -379,7 +339,6 @@ class Hub(object):
     def product_online(self) -> bool:
         """Return product object connected to the Hub gateway"""
         if "APLCONN" not in self.response_json:
-            # if not self.response_json:
             return False
         return self.response_json["APLCONN"] == 1
 
@@ -410,7 +369,6 @@ class Hub(object):
                 k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
             }
             newList.update({"icon": self.response_json["icon"]})
-            newList_json = json.dumps(newList)
             return newList
         return
 
@@ -437,91 +395,90 @@ class Palazzetti(object):
     response_json_alls = None
     response_json_stdt = None
 
-    response_json = None
-
-    data = None
     data_config_json = None
     data_config_object = None
+
+    code_status = {
+        0: "OFF",
+        1: "OFF TIMER",
+        2: "TESTFIRE",
+        3: "HEATUP",
+        4: "FUELIGN",
+        5: "IGNTEST",
+        6: "BURNING",
+        9: "COOLFLUID",
+        10: "FIRESTOP",
+        11: "CLEANFIRE",
+        12: "COOL",
+        241: "CHIMNEY ALARM",
+        243: "GRATE ERROR",
+        244: "NTC2 ALARM",
+        245: "NTC3 ALARM",
+        247: "DOOR ALARM",
+        248: "PRESS ALARM",
+        249: "NTC1 ALARM",
+        250: "TC1 ALARM",
+        252: "GAS ALARM",
+        253: "NOPELLET ALARM",
+    }
 
     def __init__(self, host, product_id="uniqueID"):
         _LOGGER.debug("Init of class palazzetti")
 
         self.ip = host
-        self.palsocket = PalComm()
-        self.state = "online"
         self.unique_id = product_id
-        self.data = {}
-        self.data["title"] = self.unique_id
+
+        # internal variables
+        self.palsocket = PalComm()
+        self.data = {"title": self.unique_id}
+        self.state = "offline"
+        self.response_json = {"icon": "mdi:link-off"}
         self._callbacks = set()
 
-        self.code_status = {
-            0: "OFF",
-            1: "OFF TIMER",
-            2: "TESTFIRE",
-            3: "HEATUP",
-            4: "FUELIGN",
-            5: "IGNTEST",
-            6: "BURNING",
-            9: "COOLFLUID",
-            10: "FIRESTOP",
-            11: "CLEANFIRE",
-            12: "COOL",
-            241: "CHIMNEY ALARM",
-            243: "GRATE ERROR",
-            244: "NTC2 ALARM",
-            245: "NTC3 ALARM",
-            247: "DOOR ALARM",
-            248: "PRESS ALARM",
-            249: "NTC1 ALARM",
-            250: "TC1 ALARM",
-            252: "GAS ALARM",
-            253: "NOPELLET ALARM",
-        }
-
     # TODO: Rename to get_static_data
-    async def async_get_stdt(self):
-        """Get counters"""
+    async def async_get_stdt(self) -> None:
+        """Get STSTIC data via TCP call"""
         await self.__async_get_request("GET STDT")
 
     # TODO: Rename to get_alls
-    async def async_get_alls(self):
-        """Get All data or almost ;)"""
+    async def async_get_alls(self) -> None:
+        """Get LIVE data via TCP call"""
         await self.__async_get_request("GET ALLS")
 
-    async def async_UDP_get_alls(self):
-        """Get All data or almost ;)"""
+    async def async_UDP_get_alls(self) -> None:
+        """Get LIVE data via UDP call"""
         await self.__async_UDP_get_request(b"plzbridge?GET ALLS")
 
     # TODO: Remove async_ from name
-    async def async_get_label(self):
+    async def async_get_label(self) -> None:
         """Get All data or almost ;)"""
         await self.__async_get_request("GET LABL")
 
     # TODO: Remove async_ from name
-    async def async_get_status(self):
+    async def async_get_status(self) -> None:
         """Get All data or almost ;)"""
         await self.__async_get_request("GET STAT")
 
     # TODO: Remove async_ from name
-    async def async_get_fan_data(self):
+    async def async_get_fan_data(self) -> None:
         """Get All data or almost ;)"""
         await self.__async_get_request("GET FAND")
 
-    async def async_get_power(self):
+    async def async_get_power(self) -> None:
         """Get All data or almost ;)"""
         await self.__async_get_request("GET POWR")
 
     # TODO: Remove async_ from name
-    async def async_get_temperatures(self):
+    async def async_get_temperatures(self) -> None:
         """Get All data or almost ;)"""
         await self.__async_get_request("GET TMPS")
 
     # TODO: Rename to get_counters
-    async def async_get_cntr(self):
-        """Get counters"""
+    async def async_get_cntr(self) -> None:
+        """Get counters via TCP"""
         await self.__async_get_request("GET CNTR")
 
-    async def __async_get_request(self, message):
+    async def __async_get_request(self, message) -> None:
         """ request the stove """
         _response_json = None
 
@@ -534,13 +491,6 @@ class Palazzetti(object):
 
         if not _response:
             await self.async_set_offline()
-            # self.state = "offline"
-            # self.data["state"] = self.state
-            # if self.response_json != None:
-            #     self.response_json.update({"icon": "mdi:link-off"})
-            # else:
-            #     self.response_json = json.loads('{"icon": "mdi:link-off"}')
-            # await self.publish_updates()
             return False
 
         # merge the result with the exixting responnse_json
@@ -570,7 +520,7 @@ class Palazzetti(object):
             self.response_json_stdt = _response
 
     # only works with GET ALLS
-    async def __async_UDP_get_request(self, message):
+    async def __async_UDP_get_request(self, message) -> None:
         """ request the stove """
         _response_json = None
 
@@ -580,23 +530,15 @@ class Palazzetti(object):
 
         # _LOGGER.debug("Executing command: {message}")
         _response = await self.palsocket.async_callUDP(self.ip, message)
-        # print(_response)
         # one single retry
         if _response is None:
-            # print("retry")
             _response = await self.palsocket.async_callUDP(self.ip, message)
 
         if not _response:
-            # print("enter here")
-            self.state = "offline"
-            self.data["state"] = self.state
-            if self.response_json != None:
-                self.response_json.update({"icon": "mdi:link-off"})
-            else:
-                self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            await self.async_set_offline()
             return False
 
-        # merge the result with the exixting responnse_json
+        # merge the result with the existing response_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
             response_merged.update(_response)
@@ -687,7 +629,7 @@ class Palazzetti(object):
 
         return _response
 
-    def __validate_power(self, value):
+    def __validate_power(self, value) -> bool:
         _power = None
 
         try:
@@ -706,7 +648,7 @@ class Palazzetti(object):
 
         return True
 
-    def __validate_fan(self, fan, value):
+    def __validate_fan(self, fan, value) -> bool:
         _fan = None
 
         try:
@@ -744,7 +686,7 @@ class Palazzetti(object):
 
         return True
 
-    def __validate_setpoint(self, value):
+    def __validate_setpoint(self, value) -> bool:
         _setpoint = None
 
         try:
@@ -766,7 +708,7 @@ class Palazzetti(object):
 
         return True
 
-    def __build_fan_command(self, fan, value):
+    def __build_fan_command(self, fan, value) -> str:
 
         _command = {"FAN_1": "SET RFAN", "FAN_2": "SET FN3L", "FAN_3": "SET FN4L"}
 
@@ -777,21 +719,12 @@ class Palazzetti(object):
 
         return command
 
-    def __config_parse(self):
+    def __config_parse(self) -> None:
         asset_parser = psap(get_alls=self.response_json, get_stdt=self.response_json)
         asset_capabilities = asset_parser.parsed_data
         self.data_config_object = asset_capabilities
 
-    # TODO: Is it possible to remove this function?
-    # BYNOW it has been limited to setpoint only
-    async def set_parameters(self, datas):
-        """set parameters following service call"""
-        await self.async_set_setpoint(datas.get("SETP", None))  # temperature
-        # self.set_powr(datas.get("PWR", None))  # fire power
-        # self.set_rfan(datas.get("RFAN", None))  # Fan
-        # self.set_status(datas.get("STATUS", None))  # status
-
-    async def async_set_label(self, value):
+    async def async_set_label(self, value) -> None:
         """Set target temperature"""
         if value == None or value == "":
             raise InvalidLabelValueError
@@ -805,7 +738,7 @@ class Palazzetti(object):
         self.data["label"] = value
         self.response_json.update({"LABEL": value})
 
-    async def async_set_power(self, value):
+    async def async_set_power(self, value) -> None:
 
         self.__validate_power(value)
 
@@ -819,7 +752,7 @@ class Palazzetti(object):
         # self.response_json.update({"POWR": value})
         # await self.publish_updates()
 
-    async def async_set_fan_silent_mode(self):
+    async def async_set_fan_silent_mode(self) -> None:
 
         command = self.__build_fan_command(1, 0)
 
@@ -829,7 +762,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan_silent_mode(self):
+    def set_fan_silent_mode(self) -> None:
 
         command = self.__build_fan_command(1, 0)
 
@@ -839,7 +772,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_fan_auto_mode(self, fan=1):
+    async def async_set_fan_auto_mode(self, fan=1) -> None:
 
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
@@ -847,7 +780,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan_auto_mode(self, fan=1):
+    def set_fan_auto_mode(self, fan=1) -> None:
 
         value = "7"  # Auto Mode
         command = self.__build_fan_command(fan, value)
@@ -855,7 +788,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_fan_high_mode(self, fan=1):
+    async def async_set_fan_high_mode(self, fan=1) -> None:
 
         value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
@@ -863,7 +796,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan_high_mode(self, fan=1):
+    def set_fan_high_mode(self, fan=1) -> None:
 
         value = "6"  # High Mode
         command = self.__build_fan_command(fan, value)
@@ -871,7 +804,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_fan(self, fan, value):
+    async def async_set_fan(self, fan, value) -> None:
 
         self.__validate_fan(fan, value)
 
@@ -880,7 +813,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_fan(self, fan, value):
+    def set_fan(self, fan, value) -> None:
 
         self.__validate_fan(fan, value)
 
@@ -889,7 +822,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_light(self, value):
+    async def async_set_light(self, value) -> None:
         if (value == None) or (type(value) is not bool):
             raise InvalidLightError
 
@@ -898,7 +831,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    def set_light(self, value):
+    def set_light(self, value) -> None:
         if (value == None) or (type(value) is not bool):
             raise InvalidLightError
 
@@ -907,7 +840,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_door(self, value):
+    async def async_set_door(self, value) -> None:
         if (value == None) or (type(value) is not bool):
             raise InvalidDoorError
 
@@ -922,7 +855,7 @@ class Palazzetti(object):
         if await self.__async_get_request(command) == False:
             raise SendCommandError
 
-    async def async_set_setpoint(self, value):
+    async def async_set_setpoint(self, value) -> None:
         """Set target temperature"""
 
         self.__validate_setpoint(value)
@@ -939,7 +872,7 @@ class Palazzetti(object):
         self.data["setp"] = value
         # self.response_json.update({"SETP": value})
 
-    def power_on(self):
+    def power_on(self) -> None:
 
         if self.__get_request("GET STAT") == False:
             raise SendCommandError
@@ -958,7 +891,7 @@ class Palazzetti(object):
         if self.__get_request(command) == False:
             raise SendCommandError
 
-    def power_off(self):
+    def power_off(self) -> None:
 
         if self.__get_request("GET STAT") == False:
             raise SendCommandError
@@ -978,24 +911,19 @@ class Palazzetti(object):
             raise SendCommandError
 
     # retuens list of states: title, state, ip
-    def get_data_states(self) -> list:
+    def get_data_states(self) -> dict:
         return self.data
 
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
     def get_data_json(self) -> dict:
         return self.response_json
 
-    # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
-    # def get_cb_data_json(self) -> json:
-    #     newList = {
-    #         k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
-    #     }
-    #     newList.update({"IP": self.ip})
-    #     # return json.dumps(newList)
-    #     return newList
-
     # retuens JSON specific for product with all keys of GET ALLS, GET STDT and GET CNTR
-    def get_prod_data_json(self) -> json:
+    def get_prod_data_json(self) -> dict:
+        return self.get_attributes()
+
+    def get_attributes(self) -> dict:
+        """get all product attributes from GET ALLS, GET STDT and GET CNTR"""
         newlist = {}
         for kv in self.response_json.items():
             if kv[0] not in HUB_KEYS:
@@ -1019,11 +947,11 @@ class Palazzetti(object):
         return self.data_config_object
 
     # returns JSON with the DATA key content of the last GET ALLS
-    def get_data_alls_json(self) -> json:
+    def get_data_alls_json(self) -> dict:
         return self.response_json_alls
 
     # returns JSON with the DATA key content of the last GET STDT
-    def get_data_stdt_json(self) -> json:
+    def get_data_stdt_json(self) -> dict:
         return self.response_json_stdt
 
     # returns int with setpoint
@@ -1036,9 +964,7 @@ class Palazzetti(object):
 
     # get generic KEY in the datas
     # if key doesn't exist returns None
-    # TODO: Is it possible to remove this function?
-    # BYNOW does not generate risks
-    def get_key(self, mykey="STATUS"):
+    def get_key(self, mykey="STATUS") -> str:
         """Get target temperature for climate"""
         if (
             self.response_json == None
@@ -1054,25 +980,12 @@ class Palazzetti(object):
         """Return unique ID of product"""
         return self.unique_id
 
-    # @property
-    # def hub_id(self) -> str:
-    #     """Return unique ID of the connectivity hub: ConnBox or BioCC"""
-    #     return self.response_json["MAC"].replace(":", "_")
-
-    # @property
-    # def hub_isbiocc(self) -> bool:
-    #     """Return True if hub is BioCC else is ConnBox"""
-    #     return (
-    #         self.response_json["CBTYPE"] == "ET4W"
-    #         or self.response_json["CBTYPE"] == "VxxET"
-    #     )
-
     @property
     def online(self) -> bool:
         """Return True if product is online"""
         return self.state == "online"
 
-    async def async_set_offline(self):
+    async def async_set_offline(self) -> None:
         self.state = "offline"
         self.data["state"] = self.state
         if self.response_json != None:
@@ -1081,15 +994,15 @@ class Palazzetti(object):
             self.response_json = json.loads('{"icon": "mdi:link-off"}')
         await self.publish_updates()
 
-    def register_callback(self, callback):
+    def register_callback(self, callback) -> None:
         """Register callback, called when Roller changes state."""
         self._callbacks.add(callback)
 
-    def remove_callback(self, callback):
+    def remove_callback(self, callback) -> None:
         """Remove previously registered callback."""
         self._callbacks.discard(callback)
 
-    async def publish_updates(self):
+    async def publish_updates(self) -> None:
         """Schedule call all registered callbacks."""
         for callback in self._callbacks:
             callback()
