@@ -2,7 +2,7 @@
 
 ## Library to interact with Palazzetti product via LOCAL HTTP HUB
 
-Requires Python 3.6 and uses palazzetti-sdk-asset-parser to decode configuration.
+Requires Python 3.6 and uses palazzetti-sdk-asset-parser to detect product capabilities.
 
 ```python
 import asyncio
@@ -43,7 +43,7 @@ def main():
 
             if hub.product and hub.product.online:
                 print(f"ID Product: {hub.product.product_id}")
-                print("Product Configuration:")
+                print("Product Capabilities:")
                 print(hub.product.get_data_config_json())
                 print("Product Attributes:")
                 print(hub.product.get_prod_data_json())
