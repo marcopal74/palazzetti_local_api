@@ -220,7 +220,7 @@ class PalDiscovery(object):
         # print(f"From checkIP_UDP {is_IP_OK}")
 
         if not _response:
-            # print("No ConnBox found via UDP, checking via HTTP...")
+            print("No Hub found via UDP, checking via HTTP...")
             _response = await self.checkIP_HTTP(testIP, response)
             # print(f"From checkIP_HTTP {is_IP_OK}")
             if not _response:
@@ -259,10 +259,10 @@ class Hub(object):
     async def async_update(self, discovery=False, deep=False):
         _response = None
         if deep:
-            print("Deep discovery")
+            # print("Deep discovery")
             _response = await self.paldiscovery.checkIP(self.ip, response=True)
         else:    
-            print("UDP discovery")
+            # print("UDP discovery")
             _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
         if not _response:
             self.online = False
