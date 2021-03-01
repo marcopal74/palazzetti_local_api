@@ -22,9 +22,9 @@ def main():
     print("Attributes:")
     print(hub.get_attributes())
 
-    # now update the hub without discovery
+    # now update the hub without discovery only via UDP (deep=False)
     print (f"Please wait, checking Hub at {use_ip}...")
-    loop.run_until_complete(hub.async_update(discovery=False))
+    loop.run_until_complete(hub.async_update(discovery=False, deep=False))
 
     print("----- POST UPDATE -----")
     if hub.hub_online:
@@ -37,9 +37,9 @@ def main():
         if hub.product_online:
             print(f"Product Online: {hub.product_online}")
 
-            # now update the hub with discovery
+            # now update the hub with discovery and HTTP failover if UDP fails (deep=True)
             print (f"Please wait, discovering product details for Hub {hub.hub_id}...")
-            loop.run_until_complete(hub.async_update(discovery=True))
+            loop.run_until_complete(hub.async_update(discovery=True, deep=True))
 
             if hub.product and hub.product.online:
                 print(f"ID Product: {hub.product.product_id}")

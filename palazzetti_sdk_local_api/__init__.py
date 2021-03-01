@@ -50,14 +50,10 @@ HUB_KEYS = [
     "IP",
 ]
 
-# to be completed!!
 class PalComm(object):
     async def async_callUDP(self, host, message):
         server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-        # Enable broadcasting mode
-        # server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         server.settimeout(DISCOVERY_TIMEOUT)
         server.sendto(message, (host, UDP_PORT))
@@ -66,7 +62,6 @@ class PalComm(object):
             # Receive the client packet along with the address it is coming from
             try:
                 data, addr = server.recvfrom(BUFFER_SIZE)
-                # print(data.decode('utf-8'))
                 if data != "":
                     mydata = data.decode("utf-8")
                     mydata_json = json.loads(mydata)
@@ -78,14 +73,11 @@ class PalComm(object):
 
     async def async_getHTTP(self, host, message):
         queryStr = "http://" + host + "/cgi-bin/sendmsg.lua"
-        # params for GET
         params = (("cmd", message),)
         _response_json = None
 
-        # check if op is defined or stop here
         if message is None:
             return False
-        # print(message)
 
         _LOGGER.debug("Executing command: {message}")
 
@@ -193,7 +185,7 @@ class PalDiscovery(object):
                 return myips
 
     async def checkIP_UDP(self, testIP, response=False):
-        """verify the IP is a Connection Box using UDP"""
+        """verify if the IP is a Connection Box using UDP"""
 
         api_discovery = PalComm()
         use_ip = testIP
@@ -264,8 +256,14 @@ class Hub(object):
         self._shape = None
         self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
 
-    async def async_update(self, discovery=False):
-        _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
+    async def async_update(self, discovery=False, deep=False):
+        _response = None
+        if deep:
+            print("Deep discovery")
+            _response = await self.paldiscovery.checkIP(self.ip, response=True)
+        else:    
+            print("UDP discovery")
+            _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
         if not _response:
             self.online = False
             if self._product:
