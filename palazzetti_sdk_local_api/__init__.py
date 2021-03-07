@@ -50,13 +50,17 @@ HUB_KEYS = [
     "IP",
 ]
 
+
 class PalComm(object):
     async def async_callUDP(self, host, message):
         server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
         server.settimeout(DISCOVERY_TIMEOUT)
-        server.sendto(message, (host, UDP_PORT))
+        try:
+            server.sendto(message, (host, UDP_PORT))
+        except:
+            return
 
         while True:
             # Receive the client packet along with the address it is coming from
@@ -261,7 +265,7 @@ class Hub(object):
         if deep:
             # print("Deep discovery")
             _response = await self.paldiscovery.checkIP(self.ip, response=True)
-        else:    
+        else:
             # print("UDP discovery")
             _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
         if not _response:
