@@ -3,6 +3,7 @@ import logging
 import requests
 import aiohttp
 import socket
+import semver
 import time
 
 from palazzetti_sdk_asset_parser import AssetParser as psap
@@ -219,13 +220,13 @@ class PalDiscovery(object):
 
         return True
 
-    async def checkIP(self, testIP, response=False,message="GET STDT"):
+    async def checkIP(self, testIP, response=False, message="GET STDT"):
         _response = await self.checkIP_UDP(testIP, response)
         # print(f"From checkIP_UDP {is_IP_OK}")
 
         if not _response:
-            print("No Hub found via UDP, checking via HTTP...")
-            _response = await self.checkIP_HTTP(testIP, response,message)
+            # print("No Hub found via UDP, checking via HTTP...")
+            _response = await self.checkIP_HTTP(testIP, response, message)
             # print(f"From checkIP_HTTP {is_IP_OK}")
             if not _response:
                 # print("No ConnBox found")
@@ -260,12 +261,14 @@ class Hub(object):
         self._shape = None
         self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
 
-    async def async_update(self, discovery=False, deep=False,message="GET STDT"):
+    async def async_update(self, discovery=False, deep=False, message="GET STDT"):
         _response = None
         _message = message
         if deep:
             # print("Deep discovery")
-            _response = await self.paldiscovery.checkIP(self.ip, response=True, message=_message)
+            _response = await self.paldiscovery.checkIP(
+                self.ip, response=True, message=_message
+            )
         else:
             # print("UDP discovery")
             _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
@@ -276,13 +279,6 @@ class Hub(object):
             self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
             await self.publish_updates()
             return
-
-        if discovery:
-            if not self._product:
-                self._product = Palazzetti(self.ip, self.unique_id + "_prd")
-            await self._product.async_get_stdt()
-            await self._product.async_get_alls()
-            await self._product.async_get_cntr()
 
         # merge the result with the exixting response_json
         if self.response_json != None:
@@ -295,6 +291,13 @@ class Hub(object):
         self.online = True
         self.response_json.update({"icon": "mdi:link"})
         await self.publish_updates()
+
+        if discovery:
+            if not self._product:
+                self._product = Palazzetti(self.ip, self.unique_id + "_prd",self.hub_isbiocc)
+            await self._product.async_get_stdt()
+            await self._product.async_get_alls()
+            await self._product.async_get_cntr()
 
     @property
     def hub_online(self) -> bool:
@@ -425,11 +428,12 @@ class Palazzetti(object):
         253: "NOPELLET ALARM",
     }
 
-    def __init__(self, host, product_id="uniqueID"):
+    def __init__(self, host, product_id="uniqueID",isbiocc=False):
         _LOGGER.debug("Init of class palazzetti")
 
         self.ip = host
         self.unique_id = product_id
+        self._isbiocc=isbiocc
 
         # internal variables
         self.palsocket = PalComm()
@@ -443,10 +447,20 @@ class Palazzetti(object):
         """Get STSTIC data via TCP call"""
         await self.__async_get_request("GET STDT")
 
+    async def async_get_lstd(self) -> None:
+        """Get STSTIC data via TCP call from Hub local file. Only for SYSTEM version >2.4.1"""
+        if semver.match(self.response_json["SYSTEM"].split(' ', 1)[0],'>2.4.1') and  not self._isbiocc:
+            await self.__async_get_request("GET LSTD")
+
     # TODO: Rename to get_alls
     async def async_get_alls(self) -> None:
         """Get LIVE data via TCP call"""
         await self.__async_get_request("GET ALLS")
+
+    async def async_get_lall(self) -> None:
+        """Get LIVE data via TCP call from Hub local file. Only for SYSTEM version >2.4.1"""
+        if semver.match(self.response_json["SYSTEM"].split(' ', 1)[0],'>2.4.1') and  not self._isbiocc:
+            await self.__async_get_request("GET LALL")
 
     async def async_UDP_get_alls(self) -> None:
         """Get LIVE data via UDP call"""
@@ -957,18 +971,15 @@ class Palazzetti(object):
     def get_data_stdt_json(self) -> dict:
         return self.response_json_stdt
 
-    # returns int with setpoint
     def get_setpoint(self) -> int:
-        """Get target temperature for climate"""
+        """Get setpoint temperature"""
         if self.response_json == None or self.response_json["SETP"] == None:
             return
 
         return int(self.response_json["SETP"])
 
-    # get generic KEY in the datas
-    # if key doesn't exist returns None
     def get_key(self, mykey="STATUS") -> str:
-        """Get target temperature for climate"""
+        """Get generic KEY in the data, returns None if key doesn't exist"""
         if (
             self.response_json == None
             or (mykey in self.response_json) == False
