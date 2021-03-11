@@ -219,13 +219,13 @@ class PalDiscovery(object):
 
         return True
 
-    async def checkIP(self, testIP, response=False):
+    async def checkIP(self, testIP, response=False,message="GET STDT"):
         _response = await self.checkIP_UDP(testIP, response)
         # print(f"From checkIP_UDP {is_IP_OK}")
 
         if not _response:
             print("No Hub found via UDP, checking via HTTP...")
-            _response = await self.checkIP_HTTP(testIP, response)
+            _response = await self.checkIP_HTTP(testIP, response,message)
             # print(f"From checkIP_HTTP {is_IP_OK}")
             if not _response:
                 # print("No ConnBox found")
@@ -260,11 +260,12 @@ class Hub(object):
         self._shape = None
         self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
 
-    async def async_update(self, discovery=False, deep=False):
+    async def async_update(self, discovery=False, deep=False,message="GET STDT"):
         _response = None
+        _message = message
         if deep:
             # print("Deep discovery")
-            _response = await self.paldiscovery.checkIP(self.ip, response=True)
+            _response = await self.paldiscovery.checkIP(self.ip, response=True, message=_message)
         else:
             # print("UDP discovery")
             _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
