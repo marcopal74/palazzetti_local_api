@@ -204,12 +204,12 @@ class PalDiscovery(object):
 
         return True
 
-    async def checkIP_HTTP(self, testIP, response=False):
+    async def checkIP_HTTP(self, testIP, response=False, message="GET STDT"):
         """verify the IP is a Connection Box using HTTP call with command GET LABL"""
         api_discovery = PalComm()
         use_ip = testIP
 
-        _response = await api_discovery.async_getHTTP(use_ip, "GET STDT")
+        _response = await api_discovery.async_getHTTP(use_ip, message)
 
         if not _response:
             return False
