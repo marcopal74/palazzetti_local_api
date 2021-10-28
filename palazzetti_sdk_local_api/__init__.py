@@ -900,7 +900,7 @@ class Palazzetti(object):
         if self.data_config_object.flag_has_switch_on_off != True:
             raise InvalidStateTransitionError
 
-        if self.data_config_object.value_product_is_on == False:
+        if self.data_config_object.value_product_is_on == True:
             raise InvalidStateTransitionError
 
         command = "CMD ON"
