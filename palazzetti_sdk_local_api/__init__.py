@@ -510,9 +510,20 @@ class Palazzetti(object):
             await self.async_set_offline()
             return False
 
-        # merge the result with the exixting responnse_json
+        # merge the result with the exixting response_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
+            # PQT patch
+            # if PQT_new < PQT_old than keep PQT old
+            _pqtNEW=0
+            _pqtOLD=0
+            if "PQT" in response_merged:
+                _pqtOLD = response_merged["PQT"]
+            if "PQT" in _response:
+                _pqtNEW = _response["PQT"]
+            if _pqtNEW<_pqtOLD:
+                _response["PQT"]=_pqtOLD
+            # end of PQT patch
             response_merged.update(_response)
             self.response_json = response_merged
         else:
@@ -558,6 +569,17 @@ class Palazzetti(object):
         # merge the result with the existing response_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
+            # PQT patch
+            # if PQT_new < PQT_old than keep PQT old
+            _pqtNEW=0
+            _pqtOLD=0
+            if "PQT" in response_merged:
+                _pqtOLD = response_merged["PQT"]
+            if "PQT" in _response:
+                _pqtNEW = _response["PQT"]
+            if _pqtNEW<_pqtOLD:
+                _response["PQT"]=_pqtOLD
+            # end of PQT patch
             response_merged.update(_response)
             self.response_json = response_merged
         else:
@@ -633,6 +655,17 @@ class Palazzetti(object):
         # merge the result with the exixting responnse_json
         if self.response_json != None:
             response_merged = self.response_json.copy()
+            # PQT patch
+            # if PQT_new < PQT_old than keep PQT old
+            _pqtNEW=0
+            _pqtOLD=0
+            if "PQT" in response_merged:
+                _pqtOLD = response_merged["PQT"]
+            if "PQT" in _response:
+                _pqtNEW = _response["PQT"]
+            if _pqtNEW<_pqtOLD:
+                _response["PQT"]=_pqtOLD
+            # end of PQT patch
             response_merged.update(_response)
             self.response_json = response_merged
         else:
